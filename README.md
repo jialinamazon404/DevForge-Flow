@@ -12,13 +12,13 @@ This repository provides two capabilities:
 One-line installation to target project:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Terry-Mao/AICodingFlow/main/install.sh | bash -s -- --target /path/to/target-repo
+curl -fsSL https://github.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/target-repo
 ```
 
 Or clone and install:
 
 ```bash
-git clone git@github.com:Terry-Mao/AICodingFlow.git
+git clone github.com/jialinamazon404/DevForge-Flow.git
 cd AICodingFlow
 
 ./install.sh --target /path/to/target-repo
