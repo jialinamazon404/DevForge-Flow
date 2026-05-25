@@ -15,7 +15,7 @@ Options:
 Examples:
   ./install.sh --target /path/to/repo
   ./install.sh --target /path/to/repo --dry-run
-  curl -fsSL https://raw.githubusercontent.com/Terry-Mao/AICodingFlow/main/install.sh | bash -s -- --target /path/to/repo
+  curl -fsSL https://github.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/repo
 USAGE
 }
 
@@ -31,7 +31,7 @@ info() {
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 target_dir="$(pwd)"
 dry_run=false
-install_repository="${AICODINGFLOW_INSTALL_REPOSITORY:-https://github.com/Terry-Mao/AICodingFlow.git}"
+install_repository="${AICODINGFLOW_INSTALL_REPOSITORY:-https://github.com/jialinamazon404/DevForge-Flow.git}"
 
 is_source_tree() {
   [ -f "$script_dir/install.sh" ] &&

@@ -103,7 +103,7 @@
   "repo": "AICodingFlow",
   "repository": "Terry-Mao/AICodingFlow",
   "pr_number": 123,
-  "pr_url": "https://github.com/Terry-Mao/AICodingFlow/pull/123",
+  "pr_url": "https://github.com/jialinamazon404/DevForge-Flow/pull/123",
   "head_branch": "feature",
   "head_sha": "abc",
   "head_repo_full_name": "user/fork",
