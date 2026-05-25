@@ -1,0 +1,21 @@
+# Syntax follows CODEOWNERS conventions: later rules take precedence.
+# GitHub may request code owner review when branch protection requires it.
+
+# Replace @jialin.chen with the GitHub user or team that owns AI workflow changes in
+# the target repository, for example @octo-org/maintainers.
+
+# --- Default ownership ---
+* @jialin.chen
+
+# --- Agent skills ---
+/.agents/ @jialin.chen
+
+# --- GitHub workflows and automation ---
+/.github/ @jialin.chen
+
+# --- Specs and documentation ---
+/specs/ @jialin.chen
+/README.md @jialin.chen
+
+# --- Tests ---
+/.github/aicodingflow-tests/ @jialin.chen
