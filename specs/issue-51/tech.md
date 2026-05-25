@@ -130,7 +130,7 @@ Reviewer request API：
 ```text
 POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers
 {
-  "reviewers": ["Terry-Mao"]
+  "reviewers": ["jialin.chen"]
 }
 ```
 

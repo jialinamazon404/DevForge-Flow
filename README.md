@@ -579,4 +579,4 @@ python3 -m unittest discover -s .github/aicodingflow-tests
 
 ---
 
-> **License**: MIT | **Author**: Terry-Mao | **Repo**: [jialinamazon404/DevForge-Flow](https://github.com/jialinamazon404/DevForge-Flow)
+> **License**: MIT | **Author**: jialin.chen | **Repo**: [jialinamazon404/DevForge-Flow](https://github.com/jialinamazon404/DevForge-Flow)

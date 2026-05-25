@@ -99,9 +99,9 @@
 
 ```json
 {
-  "owner": "Terry-Mao",
-  "repo": "AICodingFlow",
-  "repository": "Terry-Mao/AICodingFlow",
+  "owner": "jialin.chen",
+  "repo": "DevForge-Flow",
+  "repository": "jialinamazon404/DevForge-Flow",
   "pr_number": 123,
   "pr_url": "https://github.com/jialinamazon404/DevForge-Flow/pull/123",
   "head_branch": "feature",
@@ -109,12 +109,12 @@
   "head_repo_full_name": "user/fork",
   "base_branch": "main",
   "base_sha": "def",
-  "base_repo_full_name": "Terry-Mao/AICodingFlow",
+  "base_repo_full_name": "jialinamazon404/DevForge-Flow",
   "is_cross_repository": true,
   "maintainer_can_modify": true,
   "can_push_to_head_branch": false,
   "branch_strategy": "fallback-pr-to-fork",
-  "agent_push_repo_full_name": "Terry-Mao/AICodingFlow",
+  "agent_push_repo_full_name": "jialinamazon404/DevForge-Flow",
   "agent_push_branch": "spec/respond-pr-123",
   "trigger_kind": "review",
   "trigger_comment_id": 123456,
