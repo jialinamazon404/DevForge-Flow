@@ -1,491 +1,582 @@
 # DevForge-Flow (AICodingFlow)
 
-DevForge-Flow is a workflow template system for AI-assisted coding. It connects local OpenCode Skills, GitHub Actions, PR Review automation, Issue Triage, and Spec-driven development into a stable, reproducible path from planning to implementation to review and merge.
+> AI Coding 工作流模板系统 —— 连接本地 OpenCode Skills、GitHub Actions、PR Review 自动化、Issue Triage 和 Spec 驱动开发，从规划到合并的稳定、可复现路径。
 
-This repository provides two capabilities:
+---
 
-- **Local Development Flow**: Use `create-issue`, `git-*`, and `create-pr` Skills to standardize issue creation, branching, committing, pushing, and PR creation.
-- **GitHub Collaboration Flow**: Use GitHub Actions + OpenCode to create specs from issues, implement issues, review PRs, respond to review comments, and update repository-local rules from human feedback.
+## 目录
 
-## Quick Start
+- [概述](#概述)
+- [快速开始](#快速开始)
+- [配置](#配置)
+- [使用指南](#使用指南)
+  - [本地开发流 Skills](#本地开发流-skills)
+  - [GitHub 协作流 Workflows](#github-协作流-workflows)
+- [团队工作流图](#团队工作流图)
+- [快速参考](#快速参考)
+- [目录结构](#目录结构)
+- [文档索引](#文档索引)
+- [贡献与反馈](#贡献与反馈)
 
-One-line installation to target project:
+---
+
+## 概述
+
+DevForge-Flow 提供两类核心能力：
+
+| 流程 | 工具 | 适用场景 |
+|------|------|----------|
+| **本地开发流** | `create-issue`、`git-*`、`create-pr` Skills | 快速修复、小功能、个人实验 |
+| **GitHub 协作流** | GitHub Actions + OpenCode | 团队协作、复杂功能、Spec 驱动开发 |
+
+### 核心特性
+
+| 特性 | 说明 |
+|------|------|
+| 🔧 **Spec 驱动开发** | `ready-to-spec` → product.md + tech.md → `plan-approved` → `ready-to-implement` |
+| 🤖 **自动化 Triage** | 新 Issue 自动分类、标签、复现性评估、重复检测 |
+| 👁️ **AI PR Review** | 自动审查 PR，生成 APPROVE/REJECT verdict + inline comments |
+| 🔄 **闭环学习** | 人工反馈自动更新 Companion Skills（`review-pr-repo`, `dedupe-issue-repo`） |
+| 🛡️ **安全护栏** | 保护标签控制、禁止伪造 Issue ID、禁止 force push |
+
+---
+
+## 快速开始
+
+### 一行安装
 
 ```bash
-curl -fsSL https://github.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/target-repo
+curl -fsSL https://raw.githubusercontent.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/target-repo
 ```
 
-Or clone and install:
+### 克隆安装
 
 ```bash
-git clone github.com/jialinamazon404/DevForge-Flow.git
-cd AICodingFlow
-
+git clone https://github.com/jialinamazon404/DevForge-Flow.git
+cd DevForge-Flow
 ./install.sh --target /path/to/target-repo
 ```
 
-Preview files to be written:
+### 预览变更
 
 ```bash
 ./install.sh --target /path/to/target-repo --dry-run
 ```
 
-The installation script depends on `bash`, `git`, `rsync`; one-line install also requires `curl`. It syncs `.agents/skills/`, `.github/scripts/`, `.github/aicodingflow-tests/` and managed workflows, but does not sync AICodingFlow's self-use `.github/tests/` and `.github/workflows/ci.yml`.
+### 依赖
 
-## Configuration
+安装脚本需要：`bash`、`git`、`rsync`（一行安装还需 `curl`）
 
-After installation, configure these in the target repository:
+**同步内容**：
+- `.agents/skills/` — OpenCode Skills
+- `.github/scripts/` — Python 辅助脚本
+- `.github/aicodingflow-tests/` — 测试和 fixtures
+- `.github/workflows/` — 受管工作流（不含 `ci.yml`）
 
-| Name | Type | Purpose |
-|------|------|---------|
-| `AGENT_API_KEY` | Actions secret | API key for OpenCode action (e.g., Anthropic API Key) |
-| `AGENT_MODEL` | Actions variable | Model for OpenCode, e.g., `anthropic/claude-sonnet-4-20250514` |
-| `AGENT_LOGIN` | Actions variable | Agent login name for GitHub issue/PR comment mentions |
-| `REVIEW_BOT_LOGIN` | Actions variable | Optional. Bot login that posts PR reviews; default `github-actions[bot]`. Needed if review workflow uses different token/bot account. |
-| `APP_CLIENT_ID` | Actions variable | GitHub App client ID; used when implementation/comment fix needs to update workflow files |
-| `APP_PRIVATE_KEY` | Actions secret | GitHub App private key; App needs `Contents: Read and write` and `Workflows: Read and write` |
+---
 
-If the target project is new to issue triage automation, run in OpenCode:
+## 配置
+
+安装后在目标仓库配置以下 Secrets 和 Variables：
+
+### 必需配置
+
+| 名称 | 类型 | 用途 |
+|------|------|------|
+| `AGENT_API_KEY` | Secret | OpenCode API Key（如 Anthropic API Key） |
+| `AGENT_MODEL` | Variable | 模型名称，如 `anthropic/claude-sonnet-4-20250514` |
+| `AGENT_LOGIN` | Variable | Agent GitHub 登录名，用于 Issue/PR mention |
+
+### 可选配置
+
+| 名称 | 类型 | 用途 |
+|------|------|------|
+| `REVIEW_BOT_LOGIN` | Variable | Review Bot 登录名（默认 `github-actions[bot]`） |
+| `APP_CLIENT_ID` | Variable | GitHub App Client ID（用于更新 workflow 文件） |
+| `APP_PRIVATE_KEY` | Secret | GitHub App Private Key（需 `Contents` + `Workflows` 写权限） |
+
+### 初始化 Triage 配置
+
+首次接入时，在 OpenCode 运行：
 
 ```text
 $bootstrap-issue-config
 ```
 
-This analyzes existing labels, issues, and contributors, generating or updating `.github/issue-triage/config.json` and `.github/CODEOWNERS`.
+自动生成：
+- `.github/issue-triage/config.json` — Label 定义
+- `.github/CODEOWNERS` — 代码所有权
 
 ---
 
-## Usage Guide
+## 使用指南
 
-### Local Development Flow Skills
+### 本地开发流 Skills
 
-The local development flow provides Skills for common Git operations. Invoke them by name in OpenCode.
+> 本地 Skills 在 OpenCode 中按名称调用，如 `$create-issue`、`$git-branch`
 
-#### create-issue
+---
 
-Create a GitHub issue from conversation context or user input.
+#### 📝 create-issue
 
-**Purpose**: Select the best `.github` issue template, fill it conservatively, and submit with GitHub CLI.
+**用途**：从对话上下文创建 GitHub Issue
 
-**Workflow**:
-1. Find repository root and discover issue templates
-2. Classify request and select appropriate template (bug, feature, docs, etc.)
-3. Route security reports privately (never publish sensitive details)
-4. Build title and body from facts only (no invented metadata)
-5. Apply metadata only when explicitly requested
-6. Create issue with `gh issue create`
+**工作流**：
+1. 查找仓库根目录和 Issue 模板
+2. 分类请求 → 选择模板（bug/feature/docs）
+3. 安全报告 → 私有渠道（禁止公开敏感细节）
+4. 构建标题/正文（仅用事实，禁止伪造元数据）
+5. `gh issue create` 提交
 
-**Key Parameters** (implicit from context):
-- Template selection: based on request type (bug → bug template, feature → feature template)
-- Labels: not added by default (let triage workflow classify)
-- Assignees/milestones: only when explicitly requested
+**关键参数**（隐含于上下文）：
 
-**Safety Rules**:
-- Never publish secrets, credentials, private keys, personal data
-- Use GitHub CLI only; no raw HTTP fallback
-- Do not create labels, milestones, branches, or PRs from this skill
+| 参数 | 来源 | 说明 |
+|------|------|------|
+| 模板选择 | 请求类型 | bug → bug 模板，feature → feature 模板 |
+| Labels | 默认不添加 | 让 Triage 工作流自动分类 |
+| Assignees | 明确请求时 | 不自动添加 |
 
-#### git-branch
+**安全规则**：
+- ❌ 禁止公开 secrets、credentials、private keys
+- ❌ 禁止 raw HTTP fallback（只用 GitHub CLI）
+- ❌ 禁止从此 Skill 创建 labels/milestones/branches/PRs
 
-Create a development branch with repository-compliant naming.
+---
 
-**Purpose**: Create correctly-named branches with safety checks.
+#### 🌿 git-branch
 
-**Naming Format**: `<type>/<short-desc>-<issueID>`
+**用途**：创建符合仓库规范的分支
 
-**Types**: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `chore`, `spec`, `impl`
+**命名格式**：`<type>/<short-desc>-<issueID>`
 
-**Workflow**:
-1. Determine branch name from issue or user input
-2. Validate name with `git check-ref-format --branch`
-3. Check local/remote state efficiently
-4. Create branch with `git switch -c <branch> <base>`
+| 类型 | 说明 |
+|------|------|
+| `feat` | 新功能 |
+| `fix` | Bug 修复 |
+| `refactor` | 重构 |
+| `docs` | 文档 |
+| `test` | 测试 |
+| `spec` | 仅 Spec |
+| `impl` | 从 Spec 实现 |
 
-**Key Parameters**:
-| Parameter | Source | Default |
-|-----------|--------|---------|
-| `type` | Issue context or user input | `chore` |
-| `short-desc` | Issue title (via `gh issue view`) or user input | - |
-| `issueID` | Issue reference in context | - |
-| `base` | Repo guidance or user input | `main` |
+**工作流**：
+1. 从 Issue 或用户输入确定分支名
+2. `git check-ref-format --branch` 验证名称
+3. 检查本地/远程状态
+4. `git switch -c <branch> <base>` 创建
 
-**Safety Rules**:
-- No overwrite, reset, stash, delete operations unless explicitly asked
-- Do not create protected branches (`main`, `master`, `develop`) unless asked
-- Never invent issue IDs
+**参数**：
 
-#### git-worktree
+| 参数 | 来源 | 默认值 |
+|------|------|--------|
+| `type` | Issue 上下文 | `chore` |
+| `short-desc` | Issue 标题（`gh issue view`） | - |
+| `issueID` | 上下文引用 | - |
+| `base` | 仓库指导 | `main` |
 
-Create isolated Git worktrees for parallel branch work.
+**安全规则**：
+- ❌ 禁止 overwrite/reset/stash/delete（除非明确请求）
+- ❌ 禁止创建保护分支（`main`/`master`/`develop`）
+- ❌ 禁止伪造 Issue ID
 
-**Purpose**: Enable parallel work on multiple branches without switching.
+---
 
-**Workflow**:
-1. Determine worktree path (typically `.worktrees/<branch-name>`)
-2. Check for existing worktree conflicts
-3. Create worktree with `git worktree add <path> <branch>`
-4. Report worktree location
+#### 🏠 git-worktree
 
-**Key Parameters**:
-| Parameter | Source | Default |
-|-----------|--------|---------|
-| `path` | User input or auto-generated | `.worktrees/<branch>` |
-| `branch` | User input or context | - |
-| `base` | For new branch creation | `main` |
+**用途**：创建隔离 Git Worktree 用于并行工作
 
-**Safety Rules**:
-- Do not remove worktrees unless explicitly asked
-- `.worktrees/` directory must remain in `.gitignore`
+**工作流**：
+1. 确定路径（`.worktrees/<branch>`）
+2. 检查冲突
+3. `git worktree add <path> <branch>`
+4. 报告位置
 
-#### git-commit
+**参数**：
 
-Create clean commits from real diffs with accurate messages.
+| 参数 | 来源 | 默认值 |
+|------|------|--------|
+| `path` | 用户输入 | `.worktrees/<branch>` |
+| `branch` | 上下文 | - |
+| `base` | 新分支时 | `main` |
 
-**Purpose**: Commit atomically with correct messages and no unrelated files.
+**安全规则**：
+- ❌ 禁止移除 Worktree（除非明确请求）
+- ✅ `.worktrees/` 必须保留在 `.gitignore`
 
-**Workflow**:
-1. Inspect changes: `git status`, `git diff`
-2. Determine commit boundaries (split for separate concerns)
-3. Stage only intended files
-4. Build message in Conventional Commit format
-5. Commit with hooks enabled
+---
 
-**Message Format**: `type(scope): summary`
+#### 💾 git-commit
 
-**Issue Linking**:
-- `Fixes #123` - when commit closes the issue
-- `Refs #123` - for partial or preparatory work
+**用途**：从真实 Diff 创建原子提交
 
-**Key Parameters**:
-| Parameter | Source | Default |
-|-----------|--------|---------|
-| `type` | Change nature | `feat`, `fix`, etc. |
-| `scope` | Module/component | Optional |
-| `summary` | Change description | From diff |
-| `issueID` | Branch pattern or explicit | - |
+**提交格式**：`type(scope): summary`
 
-**Safety Rules**:
-- Never use `--no-verify` unless explicitly asked
-- Do not push, rewrite history, or force
-- Report hook failures without bypassing
+**Issue 关联**：
+- `Fixes #123` — 关闭 Issue
+- `Refs #123` — 部分/准备工作
 
-#### git-push
+**工作流**：
+1. `git status` / `git diff` 检查变更
+2. 确定提交边界（分离关注点）
+3. 只暂存意图文件
+4. Conventional Commit 格式构建消息
+5. Hooks 启用提交
 
-Push committed branch work safely.
+**参数**：
 
-**Purpose**: Push to correct remote branch with minimal checks.
+| 参数 | 来源 | 默认值 |
+|------|------|--------|
+| `type` | 变更性质 | `feat`/`fix` 等 |
+| `scope` | 模块 | 可选 |
+| `summary` | Diff 描述 | 从 Diff |
+| `issueID` | 分支模式或显式 | - |
 
-**Workflow**:
-1. Verify branch is ready (committed work)
-2. Check remote state (no divergent history)
-3. Push with upstream tracking: `git push -u origin <branch>`
+**安全规则**：
+- ❌ 禁止 `--no-verify`（除非明确请求）
+- ❌ 禁止 push/重写历史/force
+- ✅ 报告 Hook 失败，不绕过
 
-**Key Parameters**:
-| Parameter | Source | Default |
-|-----------|--------|---------|
-| `remote` | Repo configuration | `origin` |
-| `branch` | Current branch | - |
-| `force` | Never unless explicitly asked | `false` |
+---
 
-**Safety Rules**:
-- No force push unless explicitly requested
-- Warn on divergent history; do not auto-resolve
+#### ⬆️ git-push
 
-#### create-pr
+**用途**：安全推送已提交分支
 
-Create or update a GitHub pull request.
+**工作流**：
+1. 验证分支已提交
+2. 检查远程状态（无分歧）
+3. `git push -u origin <branch>`
 
-**Purpose**: Create PR from pushed branch with proper metadata.
+**参数**：
 
-**Workflow**:
-1. Verify branch pushed to remote
-2. Sync with base branch if needed
-3. Build PR title and body
-4. Create PR with `gh pr create`
-5. Link to issue if applicable
+| 参数 | 来源 | 默认值 |
+|------|------|--------|
+| `remote` | 仓库配置 | `origin` |
+| `branch` | 当前分支 | - |
+| `force` | 永不 | `false` |
 
-**Title Format**: `[#123] type(scope): summary`
+**安全规则**：
+- ❌ 禁止 force push（除非明确请求）
+- ✅ 分歧时警告，不自动解决
 
-**Summary Template**:
+---
+
+#### 🔀 create-pr
+
+**用途**：创建或更新 GitHub Pull Request
+
+**标题格式**：`[#123] type(scope): summary`
+
+**Summary 模板**：
 ```markdown
 ## What
-[One-line description]
+[一行描述]
 
 ## Why
-[Reason for change]
+[变更原因]
 
 ## How
-[Key implementation details]
+[关键实现]
 
 ## Testing
-[How tested]
+[如何测试]
 ```
 
-**Key Parameters** (from `pr-metadata.json` or context):
-| Parameter | Source | Required |
-|-----------|--------|----------|
-| `branch_name` | Context or metadata | Yes |
-| `pr_title` | Context or metadata | Yes |
-| `pr_summary` | Context or metadata | Optional |
-| `intended_files` | Context or metadata | Optional |
+**工作流**：
+1. 验证分支已推送
+2. 如需与 base 同步
+3. 构建 PR 标题/正文
+4. `gh pr create`
+5. 关联 Issue
 
-**Safety Rules**:
-- Run review before PR creation when requested
-- Do not merge or close PRs from this skill
+**参数**（从 `pr-metadata.json` 或上下文）：
+
+| 参数 | 来源 | 必需 |
+|------|------|------|
+| `branch_name` | 上下文 | ✅ |
+| `pr_title` | 上下文 | ✅ |
+| `pr_summary` | 上下文 | 可选 |
+| `intended_files` | 上下文 | 可选 |
+
+**安全规则**：
+- ✅ 请求时先运行 Review
+- ❌ 禁止合并/关闭 PR
 
 ---
 
-### GitHub Collaboration Flow Workflows
+### GitHub 协作流 Workflows
 
-GitHub Actions workflows automate triage, spec creation, implementation, and review.
+> GitHub Actions 自动化 Triage、Spec 创建、Implementation、Review
 
-#### triage-issue.yml
+---
 
-**Triggers**:
+#### 🔍 triage-issue.yml
+
+**触发条件**：
 - `issues: opened, reopened`
-- `issue_comment: created` (non-bot)
-- `workflow_dispatch` with `issue` input
+- `issue_comment: created`（非 Bot）
+- `workflow_dispatch` 带 `issue` 输入
 
-**Inputs**:
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `issue` | Yes (dispatch) | - | Issue number |
-| `agent_login` | No | `AGENT_LOGIN` | Agent login |
-| `include_issue_body` | No | `true` | Include issue body in output |
+**输入参数**：
 
-**Output**: `triage_result.json`
+| 输入 | 必需 | 默认值 | 说明 |
+|------|------|--------|------|
+| `issue` | ✅（dispatch） | - | Issue 编号 |
+| `agent_login` | 可选 | `AGENT_LOGIN` | Agent 登录 |
+| `include_issue_body` | 可选 | `true` | 包含 Issue 正文 |
 
-**Fields**:
-| Field | Type | Description |
-|-------|------|-------------|
-| `labels` | `array[string]` | Labels to apply (from config) |
-| `repro` | `string` | Reproducibility (`high`, `medium`, `low`, `unknown`) |
-| `confidence` | `string` | Confidence (`high`, `medium`, `low`) |
-| `related_files` | `array[string]` | Related file paths |
-| `root_cause` | `string` | Evidence-based assessment |
-| `summary` | `string` | Triage conclusion |
-| `follow_up_questions` | `array` | Questions for author |
-| `duplicate_of` | `array` | Duplicate candidates |
-| `issue_body` | `string` | Markdown for comment |
+**输出**：`triage_result.json`
 
-**Constraints**:
-- Never include protected labels (`ready-to-spec`, `ready-to-implement`, `plan-approved`)
-- `duplicate_of` and `follow_up_questions` are mutually exclusive
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `labels` | `array[string]` | 要应用的标签 |
+| `repro` | `string` | 复现性（`high`/`medium`/`low`/`unknown`） |
+| `confidence` | `string` | 置信度（`high`/`medium`/`low`） |
+| `related_files` | `array[string]` | 相关文件路径 |
+| `root_cause` | `string` | 根本原因评估 |
+| `summary` | `string` | Triage 结论 |
+| `follow_up_questions` | `array` | 向作者提问 |
+| `duplicate_of` | `array` | 重复候选 |
 
-#### create-spec-from-issue.yml
+**约束**：
+- ❌ 禁止包含保护标签（`ready-to-spec`/`ready-to-implement`/`plan-approved`）
+- `duplicate_of` 和 `follow_up_questions` 互斥
 
-**Trigger**: Issue labeled `ready-to-spec`
+---
 
-**Outputs**:
-- `specs/issue-<N>/product.md` - Product spec (behavior, UX)
-- `specs/issue-<N>/tech.md` - Tech spec (architecture, implementation)
-- Spec PR for human review
+#### 📋 create-spec-from-issue.yml
 
-#### plan-approved.yml
+**触发**：Issue 获得 `ready-to-spec` 标签
 
-**Trigger**: Spec PR merged (issue gets `plan-approved` label)
+**输出**：
+- `specs/issue-<N>/product.md` — Product Spec（行为、UX）
+- `specs/issue-<N>/tech.md` — Tech Spec（架构、实现）
+- Spec PR 供人工审核
 
-**Behavior**:
-- Check implementation gates (no conflicts, dependencies satisfied)
-- If pass → add `ready-to-implement` label
-- If fail → post comment explaining blockers
+---
 
-#### create-implementation-from-issue.yml
+#### ✅ plan-approved.yml
 
-**Trigger**: Issue labeled `ready-to-implement`
+**触发**：Spec PR 合并 → Issue 获得 `plan-approved`
 
-**Outputs**:
-- Implementation commits on feature branch
-- Implementation PR
+**行为**：
+- 检查实现关口（无冲突、依赖满足）
+- 通过 → `ready-to-implement`
+- 失败 → 评论说明阻塞
+
+---
+
+#### 🔨 create-implementation-from-issue.yml
+
+**触发**：Issue 获得 `ready-to-implement`
+
+**输出**：
+- Feature 分支上的实现提交
+- 实现 PR
 - `implementation_summary.md`
 
-#### review-pr.yml
+---
 
-**Triggers**:
-- `workflow_dispatch` with `pr_number`
-- `issue_comment: created` with `@AGENT_LOGIN /review`
+#### 👁️ review-pr.yml
 
-**Input**:
-| Input | Required | Description |
-|-------|----------|-------------|
-| `pr_number` | Yes (dispatch) | PR number |
+**触发**：
+- `workflow_dispatch` 带 `pr_number`
+- PR 评论含 `@AGENT_LOGIN /review`
 
-**Output**: `review.json`
+**输入**：
 
-**Fields**:
-| Field | Type | Description |
-|-------|------|-------------|
-| `verdict` | `string` | `APPROVE`, `REJECT`, or `COMMENT` |
-| `body` | `string` | Review summary |
-| `comments` | `array` | Inline comments |
-| `recommended_reviewers` | `array` | Human reviewer suggestion (max 1) |
+| 输入 | 必需 | 说明 |
+|------|------|------|
+| `pr_number` | ✅（dispatch） | PR 编号 |
 
-#### respond-to-pr-comment.yml
+**输出**：`review.json`
 
-**Trigger**: PR comment with `@AGENT_LOGIN` and command
-
-**Commands**:
-| Command | Purpose |
-|---------|---------|
-| `/explain` | Explain code changes |
-| `/implement` | Implement requested change |
-| `/review` | Request AI review |
-| `/fix` | Fix identified issues |
-| `/approve` | Approve previous REQUEST_CHANGES |
-
-#### update-pr-review.yml
-
-**Trigger**: Human changes bot PR review
-
-**Behavior**: Updates `review-pr-repo` companion skill from feedback
-
-#### update-dedupe.yml
-
-**Trigger**: Human closes issue as duplicate
-
-**Behavior**: Updates `dedupe-issue-repo` companion skill from closure
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `verdict` | `string` | `APPROVE`/`REJECT`/`COMMENT` |
+| `body` | `string` | Review 汇总 |
+| `comments` | `array` | 行内评论 |
+| `recommended_reviewers` | `array` | 人工审核者（最多 1） |
 
 ---
 
-## Team Workflow Diagrams
+#### 💬 respond-to-pr-comment.yml
 
-### Overall Collaboration Flow
+**触发**：PR 评论含 `@AGENT_LOGIN` + 命令
+
+**命令**：
+
+| 命令 | 用途 |
+|------|------|
+| `/explain` | 解释代码变更 |
+| `/implement` | 实现请求变更 |
+| `/review` | 请求 AI Review |
+| `/fix` | 修复问题 |
+| `/approve` | 批准之前的 REQUEST_CHANGES |
+
+---
+
+#### 🔄 update-pr-review.yml
+
+**触发**：人工修改 Bot PR Review
+
+**行为**：更新 `review-pr-repo` Companion Skill
+
+---
+
+#### 🔍 update-dedupe.yml
+
+**触发**：人工将 Issue 关闭为重复
+
+**行为**：更新 `dedupe-issue-repo` Companion Skill
+
+---
+
+## 团队工作流图
+
+### 整体协作流程
 
 ```mermaid
 flowchart TB
-    subgraph Local["Local Development Flow"]
-        A[Discover Issue/Need] --> B[create-issue skill]
-        B --> C[git-branch skill]
-        C --> D[Develop Implementation]
-        D --> E[git-commit skill]
-        E --> F[git-push skill]
-        F --> G[create-pr skill]
+    subgraph Local["本地开发流"]
+        A[发现 Issue/需求] --> B[create-issue]
+        B --> C[git-branch]
+        C --> D[开发实现]
+        D --> E[git-commit]
+        E --> F[git-push]
+        F --> G[create-pr]
     end
     
-    subgraph GitHub["GitHub Collaboration Flow"]
-        H[Issue Created] --> I[triage-issue workflow]
-        I --> J{Need Spec?}
-        J -->|Yes| K[create-spec workflow]
-        K --> L[plan-approved label]
-        L --> M[create-implementation workflow]
-        J -->|No| N[Direct Implementation]
-        N --> O[PR Created]
+    subgraph GitHub["GitHub 协作流"]
+        H[Issue 创建] --> I[triage-issue]
+        I --> J{需要 Spec?}
+        J -->|是| K[create-spec]
+        K --> L[plan-approved]
+        L --> M[create-impl]
+        J -->|否| N[直接实现]
+        N --> O[PR 创建]
         M --> O
-        O --> P[review-pr workflow]
-        P --> Q{Review Result}
-        Q -->|approve| R[Merge]
-        Q -->|request_changes| S[respond workflow]
+        O --> P[review-pr]
+        P --> Q{Review 结果}
+        Q -->|approve| R[合并]
+        Q -->|changes| S[respond]
         S --> D
     end
     
     G --> O
 ```
 
-### Local vs GitHub Flow Decision
+### 流程选择决策
 
 ```mermaid
 flowchart LR
-    A[Start Task] --> B{Team Collaboration?}
-    B -->|No| C[Local Flow]
-    B -->|Yes| D{Need Spec?}
-    D -->|No| E[GitHub Flow<br/>Direct Implementation]
-    D -->|Yes| F[GitHub Flow<br/>Spec First]
+    A[开始任务] --> B{团队协作?}
+    B -->|否| C[本地流]
+    B -->|是| D{需要 Spec?}
+    D -->|否| E[GitHub 流<br/>直接实现]
+    D -->|是| F[GitHub 流<br/>Spec 先行]
     
-    C --> G[Fast Completion<br/>Full Control]
-    E --> H[Team Visible<br/>Light Process]
-    F --> I[Full Planning<br/>Review Gate]
+    C --> G[快速完成<br/>完全控制]
+    E --> H[团队可见<br/>轻量流程]
+    F --> I[充分规划<br/>审核把关]
 ```
 
 ---
 
-## Quick Reference
+## 快速参考
 
-### Branch Naming
+### 分支命名
 
-| Type | Pattern | Example |
-|------|---------|---------|
-| Feature | `feat/<desc>-<issue>` | `feat/add-retry-42` |
-| Fix | `fix/<desc>-<issue>` | `fix/null-input-15` |
-| Refactor | `refactor/<desc>-<issue>` | `refactor/auth-33` |
-| Docs | `docs/<desc>-<issue>` | `docs/readme-7` |
-| Test | `test/<desc>-<issue>` | `test/unit-21` |
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| 功能 | `feat/<desc>-<issue>` | `feat/add-retry-42` |
+| 修复 | `fix/<desc>-<issue>` | `fix/null-input-15` |
+| 重构 | `refactor/<desc>-<issue>` | `refactor/auth-33` |
+| 文档 | `docs/<desc>-<issue>` | `docs/readme-7` |
+| 测试 | `test/<desc>-<issue>` | `test/unit-21` |
 | Spec | `spec/<desc>-<issue>` | `spec/api-99` |
-| Implementation | `impl/<desc>-<issue>` | `impl/auth-99` |
+| 实现 | `impl/<desc>-<issue>` | `impl/auth-99` |
 
-### Commit Format
+### 提交格式
 
-| Type | Format | Example |
-|------|--------|---------|
-| Feature | `feat(scope): summary` | `feat(auth): add OAuth2` |
-| Fix | `fix(scope): summary` | `fix(api): handle null` |
-| Docs | `docs: summary` | `docs: update readme` |
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| 功能 | `feat(scope): summary` | `feat(auth): add OAuth2` |
+| 修复 | `fix(scope): summary` | `fix(api): handle null` |
+| 文档 | `docs: summary` | `docs: update readme` |
 
 ### Issue Labels
 
-| Category | Labels | Purpose |
-|----------|--------|---------|
-| Protected | `ready-to-spec`, `ready-to-implement`, `plan-approved` | Workflow gates (never auto-added) |
-| Flow | `triaged`, `needs-info`, `duplicate` | Triage disposition |
-| Repro | `repro:high`, `repro:medium`, `repro:low`, `repro:unknown` | Reproducibility |
-| Area | `area:workflow`, `area:skills`, `area:specs`, `area:tests` | Code area |
-| Type | `bug`, `enhancement`, `documentation` | Issue type |
+| 类别 | Labels | 用途 |
+|------|--------|------|
+| **保护** | `ready-to-spec`, `ready-to-implement`, `plan-approved` | 工作流关口（禁止自动添加） |
+| 流程 | `triaged`, `needs-info`, `duplicate` | Triage 处置 |
+| 复现 | `repro:high`, `repro:medium`, `repro:low`, `repro:unknown` | 复现性 |
+| 区域 | `area:workflow`, `area:skills`, `area:specs`, `area:tests` | 代码区域 |
+| 类型 | `bug`, `enhancement`, `documentation` | Issue 类型 |
 
-### PR Commands
+### PR 命令
 
-| Command | Purpose |
-|---------|---------|
-| `/explain` | Explain code |
-| `/implement` | Implement change |
-| `/review` | Request AI review |
-| `/fix` | Fix issues |
-| `/approve` | Approve previous rejection |
+| 命令 | 用途 |
+|------|------|
+| `/explain` | 解释代码 |
+| `/implement` | 实现变更 |
+| `/review` | 请求 AI Review |
+| `/fix` | 修复问题 |
+| `/approve` | 批准之前的拒绝 |
 
 ---
 
-## Directory Structure
+## 目录结构
 
 ```
-.agents/                         # Multi-tool shared agent config entry
+.agents/                         # 多工具共享 Agent 配置
 .agents/skills/                  # OpenCode/Codex Skills
-.claude/                         # Claude entry directory
+.claude/                         # Claude 入口
 .cursor/rules/                   # Cursor rules
-.github/workflows/               # GitHub Actions workflows
-.github/scripts/                 # Python helpers for workflows
-.github/aicodingflow-tests/      # Upstream-managed unittests and fixtures
-.github/tests/                   # AICodingFlow repo self-use tests
-.github/issue-triage/            # Issue triage config
-docs/                            # Detailed documentation
-specs/                           # Issue product/tech specs
+.github/workflows/               # GitHub Actions
+.github/scripts/                 # Python 辅助脚本
+.github/aicodingflow-tests/      # 测试和 fixtures
+.github/tests/                   # 自用测试
+.github/issue-triage/            # Triage 配置
+docs/                            # 详细文档
+specs/                           # Issue Spec 目录
 ```
 
-Entry directories `.claude`, `.cursor` are normal directories that reference `.agents` shared content internally. See [Agent Directories](docs/agent-directories.md).
+---
+
+## 文档索引
+
+| 文档 | 语言 | 内容 |
+|------|------|------|
+| [Conventions](docs/conventions.md) | 英文 | Git/Label/Spec/PR 规范、JSON Schema、最佳实践 |
+| [规范文档](docs/conventions_CN.md) | 中文 | Git/Label/Spec/PR 规范（中文版） |
+| [README_CN](docs/README_CN.md) | 中文 | 本文档中文版 |
+| [本地开发流](docs/local-development-flow.md) | 中文 | Local Skills 详细说明 |
+| [GitHub 协作流](docs/github-collaboration-flow.md) | 中文 | GitHub Actions 详细说明 |
+| [Agent 目录](docs/agent-directories.md) | 中文 | `.agents`/`.claude`/`.cursor` 结构 |
+| [自进化 Skills](docs/evolving-repo-skills.md) | 中文 | Companion Skill 自动更新 |
 
 ---
 
-## Documentation
+## 贡献与反馈
 
-- [Conventions](docs/conventions.md) - Complete Git, Label, Spec, PR, Workflow conventions (English)
-- [Conventions CN](docs/conventions_CN.md) - 规范文档（中文）
-- [Local Development Flow](docs/local-development-flow.md) - Local Skills workflow
-- [GitHub Collaboration Flow](docs/github-collaboration-flow.md) - GitHub Actions workflow
-- [Agent Directories](docs/agent-directories.md) - `.agents`, `.claude`, `.cursor` structure
-- [Evolving Repo Skills](docs/evolving-repo-skills.md) - Companion skill auto-update
+提交 Issue 或 PR 反馈。Bug 报告请包含：
 
----
+- 📌 运行的 Skill 或 Workflow
+- 🌿 分支名、Issue 编号、PR 链接
+- 📝 命令输出或 GitHub Actions 日志
+- 📦 Artifacts：
+  - PR Review: `pr_description.txt`, `pr_diff.txt`, `spec_context.md`, `review.json`
+  - Implementation: `issue_context.json`, `implementation_summary.md`, `pr-metadata.json`
 
-## Contributing and Feedback
-
-Submit issues or PRs for feedback. For bugs, include:
-
-- Running Skill or workflow
-- Branch name, issue number, PR link
-- Command output or GitHub Actions logs
-- PR review artifacts: `pr_description.txt`, `pr_diff.txt`, `spec_context.md`, `review.json`
-- Implementation artifacts: `issue_context.json`, `pr_comment_context.json`, `implementation_summary.md`, `pr-metadata.json`
-
-Test commands:
+### 测试命令
 
 ```bash
 python3 -m unittest discover -s .github/tests
 python3 -m unittest discover -s .github/aicodingflow-tests
 ```
+
+---
+
+> **License**: MIT | **Author**: Terry-Mao | **Repo**: [jialinamazon404/DevForge-Flow](https://github.com/jialinamazon404/DevForge-Flow)
