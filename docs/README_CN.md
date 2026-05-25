@@ -12,13 +12,13 @@ DevForge-Flow 是一套面向 AI Coding 的工作流模板系统。它将本地 
 一行安装到目标项目：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Terry-Mao/AICodingFlow/main/install.sh | bash -s -- --target /path/to/target-repo
+curl -fsSL https://github.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/target-repo
 ```
 
 或克隆后安装：
 
 ```bash
-git clone git@github.com:Terry-Mao/AICodingFlow.git
+git clone github.com/jialinamazon404/DevForge-Flow.git
 cd AICodingFlow
 
 ./install.sh --target /path/to/target-repo
