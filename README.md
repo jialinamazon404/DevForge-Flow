@@ -209,7 +209,7 @@ $bootstrap-issue-config
 
 **用途**：从真实 Diff 创建原子提交
 
-**提交格式**：`type(scope): summary`
+**提交格式**：`SNXXX: type(scope): summary`
 
 **Issue 关联**：
 - `Fixes #123` — 关闭 Issue
@@ -501,9 +501,9 @@ flowchart LR
 
 | 类型 | 格式 | 示例 |
 |------|------|------|
-| 功能 | `feat(scope): summary` | `feat(auth): add OAuth2` |
-| 修复 | `fix(scope): summary` | `fix(api): handle null` |
-| 文档 | `docs: summary` | `docs: update readme` |
+| 功能 | `SNXXX: feat(scope): summary` | `SN001: feat(auth): add OAuth2` |
+| 修复 | `SNXXX: fix(scope): summary` | `SN002: fix(api): handle null` |
+| 文档 | `SNXXX: docs: summary` | `SN003: docs: update readme` |
 
 ### Issue Labels
 

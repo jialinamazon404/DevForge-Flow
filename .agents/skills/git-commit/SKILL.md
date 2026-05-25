@@ -42,8 +42,10 @@ If the user asked to commit a clear current change, proceed after inspection. As
 Default format unless repo conventions say otherwise:
 
 ```text
-type(scope): summary
+SNXXX: type(scope): summary
 ```
+
+**Requirement Code (SNXXX):** External requirement tracking code (e.g., `SN001`, `SN123`). Must be present at the start of commit message. No validation required.
 
 Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`. Use a scope when obvious. Avoid `update`, `changes`, `misc`, and `wip`.
 

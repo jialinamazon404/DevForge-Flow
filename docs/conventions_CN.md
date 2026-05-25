@@ -46,15 +46,21 @@ git check-ref-format --branch <branch-name>
 
 ### 提交格式
 
-**格式:** Conventional Commits
+**格式:** Conventional Commits + 需求编号前缀
 
 ```text
-type(scope): summary
+SNXXX: type(scope): summary
 
 [可选正文]
 
 Refs #<issueID>
 ```
+
+**需求编号 (SNXXX):**
+- 外部需求追踪编号（如 `SN001`, `SN123`, `SN999`）
+- 必须位于提交消息开头
+- 无需校验 — 只需与外部需求系统匹配
+- 格式: `SN` + 3位数字
 
 **类型:** `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`
 
@@ -66,15 +72,15 @@ Refs #<issueID>
 **示例:**
 
 ```text
-feat(auth): add OAuth2 support
+SN001: feat(auth): add OAuth2 support
 
 Refs #42
 
-fix(api): handle null response from upstream service
+SN002: fix(api): handle null response from upstream service
 
 Fixes #15
 
-docs(conventions): document branch naming rules
+SN003: docs(conventions): document branch naming rules
 
 Refs #7
 ```

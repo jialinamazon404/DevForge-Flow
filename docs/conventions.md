@@ -46,15 +46,21 @@ git check-ref-format --branch <branch-name>
 
 ### Commit Format
 
-**Format:** Conventional Commits
+**Format:** Conventional Commits with Requirement Code Prefix
 
 ```text
-type(scope): summary
+SNXXX: type(scope): summary
 
 [optional body]
 
 Refs #<issueID>
 ```
+
+**Requirement Code (SNXXX):**
+- External requirement tracking code (e.g., `SN001`, `SN123`, `SN999`)
+- Must be present at the start of commit message
+- No validation required - just needs to match external requirement system
+- Format: `SN` + 3-digit number
 
 **Types:** `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`
 
@@ -66,15 +72,15 @@ Refs #<issueID>
 **Examples:**
 
 ```text
-feat(auth): add OAuth2 support
+SN001: feat(auth): add OAuth2 support
 
 Refs #42
 
-fix(api): handle null response from upstream service
+SN002: fix(api): handle null response from upstream service
 
 Fixes #15
 
-docs(conventions): document branch naming rules
+SN003: docs(conventions): document branch naming rules
 
 Refs #7
 ```
