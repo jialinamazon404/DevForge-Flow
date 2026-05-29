@@ -150,6 +150,30 @@ def remove_ready_to_spec_label(repo: str, issue_number: int, dry_run: bool = Fal
     )
 
 
+def add_ready_to_implement_label(repo: str, issue_number: int, dry_run: bool = False) -> None:
+    if dry_run:
+        return
+    subprocess.run(
+        ["gh", "api", f"repos/{repo}/issues/{issue_number}/labels", "-X", "POST", "-f", f"labels[]={READY_TO_IMPLEMENT_LABEL}"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def assign_agent_to_issue(repo: str, issue_number: int, agent_login: str, dry_run: bool = False) -> None:
+    if dry_run or not agent_login:
+        return
+    subprocess.run(
+        ["gh", "issue", "edit", str(issue_number), "--repo", repo, "--add-assignee", agent_login],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
 def dispatch_implementation(repo: str, default_branch: str, issue_number: int, agent_login: str, dry_run: bool = False) -> None:
     if dry_run:
         return
@@ -213,18 +237,18 @@ def handle_plan_approved(args: argparse.Namespace) -> dict[str, str]:
         removed_ready_to_spec = remove_ready_to_spec_label(args.repo, issue_number, args.dry_run)
 
     agent_login = args.agent_login.strip()
-    has_ready_to_implement = READY_TO_IMPLEMENT_LABEL in issue_labels
-    has_agent_assignee = bool(agent_login and agent_login in issue_assignees)
     default_branch = repository_default_branch(event) or fetch_default_branch(args.repo)
 
-    skip_reason = ""
+    # Auto-transition to implementation phase
+    if agent_login:
+        add_ready_to_implement_label(args.repo, issue_number, args.dry_run)
+        assign_agent_to_issue(args.repo, issue_number, agent_login, args.dry_run)
+
+    # Dispatch implementation after label + assignment
     implementation_dispatched = False
-    if not has_ready_to_implement:
-        skip_reason = f"missing {READY_TO_IMPLEMENT_LABEL}"
-    elif not agent_login:
+    skip_reason = ""
+    if not agent_login:
         skip_reason = "missing agent login"
-    elif not has_agent_assignee:
-        skip_reason = "missing bot assignee"
     else:
         dispatch_implementation(args.repo, default_branch, issue_number, agent_login, args.dry_run)
         implementation_dispatched = True
@@ -232,8 +256,8 @@ def handle_plan_approved(args: argparse.Namespace) -> dict[str, str]:
     return build_outputs(
         issue_number=issue_number,
         removed_ready_to_spec=removed_ready_to_spec,
-        has_ready_to_implement=has_ready_to_implement,
-        has_agent_assignee=has_agent_assignee,
+        has_ready_to_implement=True,
+        has_agent_assignee=bool(agent_login),
         implementation_dispatched=implementation_dispatched,
         skip_reason=skip_reason,
     )

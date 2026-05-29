@@ -111,6 +111,8 @@ class HandlePlanApprovedTest(unittest.TestCase):
                 return_value=issue(labels=["ready-to-spec", "ready-to-implement"], assignees=["codex"]),
             ),
             mock.patch.object(handle_plan_approved, "remove_ready_to_spec_label", return_value=True) as remove_label,
+            mock.patch.object(handle_plan_approved, "add_ready_to_implement_label"),
+            mock.patch.object(handle_plan_approved, "assign_agent_to_issue"),
             mock.patch.object(handle_plan_approved, "dispatch_implementation") as dispatch,
         ):
             outputs = handle_plan_approved.handle_plan_approved(args)
@@ -123,7 +125,7 @@ class HandlePlanApprovedTest(unittest.TestCase):
         self.assertEqual(outputs["implementation_dispatched"], "true")
         self.assertEqual(outputs["skip_reason"], "")
 
-    def test_missing_ready_to_implement_only_syncs_ready_to_spec(self) -> None:
+    def test_auto_transitions_when_missing_ready_to_implement(self) -> None:
         args = self.args_for_event({"pull_request": pr(), "repository": {"default_branch": "main"}})
 
         with (
@@ -133,16 +135,20 @@ class HandlePlanApprovedTest(unittest.TestCase):
                 return_value=issue(labels=["ready-to-spec"], assignees=["codex"]),
             ),
             mock.patch.object(handle_plan_approved, "remove_ready_to_spec_label", return_value=True),
+            mock.patch.object(handle_plan_approved, "add_ready_to_implement_label"),
+            mock.patch.object(handle_plan_approved, "assign_agent_to_issue"),
             mock.patch.object(handle_plan_approved, "dispatch_implementation") as dispatch,
         ):
             outputs = handle_plan_approved.handle_plan_approved(args)
 
-        dispatch.assert_not_called()
+        dispatch.assert_called_once()
         self.assertEqual(outputs["removed_ready_to_spec"], "true")
-        self.assertEqual(outputs["implementation_dispatched"], "false")
-        self.assertEqual(outputs["skip_reason"], "missing ready-to-implement")
+        self.assertEqual(outputs["has_ready_to_implement"], "true")
+        self.assertEqual(outputs["has_agent_assignee"], "true")
+        self.assertEqual(outputs["implementation_dispatched"], "true")
+        self.assertEqual(outputs["skip_reason"], "")
 
-    def test_missing_bot_assignee_does_not_dispatch(self) -> None:
+    def test_auto_transitions_when_missing_bot_assignee(self) -> None:
         args = self.args_for_event({"pull_request": pr(), "repository": {"default_branch": "main"}})
 
         with (
@@ -152,14 +158,17 @@ class HandlePlanApprovedTest(unittest.TestCase):
                 return_value=issue(labels=["ready-to-spec", "ready-to-implement"], assignees=[]),
             ),
             mock.patch.object(handle_plan_approved, "remove_ready_to_spec_label", return_value=True),
+            mock.patch.object(handle_plan_approved, "add_ready_to_implement_label"),
+            mock.patch.object(handle_plan_approved, "assign_agent_to_issue"),
             mock.patch.object(handle_plan_approved, "dispatch_implementation") as dispatch,
         ):
             outputs = handle_plan_approved.handle_plan_approved(args)
 
-        dispatch.assert_not_called()
+        dispatch.assert_called_once()
         self.assertEqual(outputs["has_ready_to_implement"], "true")
-        self.assertEqual(outputs["has_agent_assignee"], "false")
-        self.assertEqual(outputs["skip_reason"], "missing bot assignee")
+        self.assertEqual(outputs["has_agent_assignee"], "true")
+        self.assertEqual(outputs["implementation_dispatched"], "true")
+        self.assertEqual(outputs["skip_reason"], "")
 
     def test_missing_agent_login_does_not_dispatch(self) -> None:
         args = self.args_for_event({"pull_request": pr(), "repository": {"default_branch": "main"}}, agent_login="")
@@ -189,6 +198,8 @@ class HandlePlanApprovedTest(unittest.TestCase):
                 return_value=issue(labels=["ready-to-implement"], assignees=["codex"]),
             ),
             mock.patch.object(handle_plan_approved, "remove_ready_to_spec_label") as remove_label,
+            mock.patch.object(handle_plan_approved, "add_ready_to_implement_label"),
+            mock.patch.object(handle_plan_approved, "assign_agent_to_issue"),
             mock.patch.object(handle_plan_approved, "dispatch_implementation"),
         ):
             outputs = handle_plan_approved.handle_plan_approved(args)

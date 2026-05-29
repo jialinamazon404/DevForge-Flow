@@ -7,12 +7,12 @@ those skills when a request names them or clearly matches their purpose.
 ## Project Overview
 
 AICodingFlow is a workflow template for AI-assisted coding. It combines local
-Codex skills, GitHub Actions, spec-driven implementation, and PR review
+OpenCode skills, GitHub Actions, spec-driven implementation, and PR review
 automation.
 
 Important paths:
 
-- `.agents/skills/` contains Codex skills used locally and by workflows.
+- `.agents/skills/` contains OpenCode skills used locally and by workflows.
 - `.github/workflows/` contains GitHub Actions entrypoints.
 - `.github/scripts/` contains Python helper scripts for workflows.
 - `.github/aicodingflow-tests/` contains upstream-managed Python `unittest`

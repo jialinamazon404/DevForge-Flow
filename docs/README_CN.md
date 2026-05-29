@@ -33,11 +33,14 @@ DevForge-Flow 提供两类核心能力：
 
 | 特性 | 说明 |
 |------|------|
-| 🔧 **Spec 驱动开发** | `ready-to-spec` → product.md + tech.md → `plan-approved` → `ready-to-implement` |
+| 🔧 **Spec 驱动开发** | `ready-to-spec` → product.md + tech.md → `plan-approved` → 自动触发实现 |
+| ✅ **Spec 一致性校验** | 实现 PR 自动比对 product.md/tech.md，输出差异报告 |
+| 📦 **Spec 归档** | 实现合并后自动标记 `implemented`，或手动标记 `deprecated` |
 | 🤖 **自动化 Triage** | 新 Issue 自动分类、标签、复现性评估、重复检测 |
 | 👁️ **AI PR Review** | 自动审查 PR，生成 APPROVE/REJECT verdict + inline comments |
 | 🔄 **闭环学习** | 人工反馈自动更新 Companion Skills（`review-pr-repo`, `dedupe-issue-repo`） |
 | 🛡️ **安全护栏** | 保护标签控制、禁止伪造 Issue ID、禁止 force push |
+| 🖥️ **本地辅助脚本** | 无 GHA 时也可手动创建 spec、校验实现、归档状态 |
 
 ---
 
@@ -72,6 +75,7 @@ cd DevForge-Flow
 - `.github/scripts/` — Python 辅助脚本
 - `.github/aicodingflow-tests/` — 测试和 fixtures
 - `.github/workflows/` — 受管工作流（不含 `ci.yml`）
+- `scripts/` — 本地辅助脚本（无 GHA 依赖）
 
 ---
 
@@ -357,12 +361,12 @@ $bootstrap-issue-config
 
 #### ✅ plan-approved.yml
 
-**触发**：Spec PR 合并 → Issue 获得 `plan-approved`
+**触发**：Spec PR 获得 `plan-approved` 标签
 
-**行为**：
-- 检查实现关口（无冲突、依赖满足）
-- 通过 → `ready-to-implement`
-- 失败 → 评论说明阻塞
+**行为**（自动串联）：
+- 移除 issue 的 `ready-to-spec` 标签
+- **自动添加** `ready-to-implement` 标签并 assign bot
+- **自动触发** implementation workflow（无需人工干预）
 
 ---
 
@@ -374,6 +378,56 @@ $bootstrap-issue-config
 - Feature 分支上的实现提交
 - 实现 PR
 - `implementation_summary.md`
+
+---
+
+#### ✅ verify-impl-against-spec.yml
+
+**触发**（自动）：实现 PR 被创建或更新（`pull_request: [opened, synchronize]`）
+
+**跳过条件**：纯 spec 文件变更（`specs/` 目录）—— 跳过验证
+
+**行为**：
+- 用 `check-impl-against-spec` 技能比对实现 diff 与 `product.md` / `tech.md`
+- 输出 `spec-alignment-report.md`
+- 显示为 GitHub check run `Spec Alignment Check`
+- 不阻塞合并（仅供审查参考）
+
+**输出**：
+| 类别 | 说明 |
+|------|------|
+| ✅ Implemented | 已匹配的验收标准 |
+| ❌ Missing | 缺失或偏离的部分 |
+| 🔄 Spec Changes | 实现过程中 specs 被合理更新的记录 |
+
+---
+
+#### 📦 archive-spec.yml
+
+**自动触发**：实现 PR 被合并（PR body 含 `Closes #N`）→ 自动将 spec 标记为 `implemented`
+
+**手动触发**：`workflow_dispatch`，参数：
+
+| 参数 | 说明 |
+|------|------|
+| `issue` | Issue 编号 |
+| `status` | `implemented` 或 `deprecated` |
+| `pr_number` | 实现 PR 编号（仅 implemented） |
+| `reason` | 弃用原因（仅 deprecated） |
+
+**行为**：
+- 在 `specs/issue-N/product.md` 顶部更新 YAML frontmatter
+- 自动添加 `status: implemented` / `deprecated` 及相关元数据
+- 提交到分支 `feat/archive-spec-N`，创建 PR
+
+**状态说明**：
+
+| 状态 | 说明 | 设置方式 |
+|------|------|----------|
+| `active` | 进行中（默认） | 新 spec 自动 |
+| `implemented` | 已实现 | PR 合并自动 / workflow_dispatch |
+| `deprecated` | 已弃用 | workflow_dispatch |
+| `unknown` | 未标记 | 旧 spec 兼容 |
 
 ---
 
@@ -432,6 +486,35 @@ $bootstrap-issue-config
 
 ---
 
+### 本地辅助脚本
+
+> 当没有 GitHub Actions 时，可用 `scripts/` 下的脚本手动执行 Spec 生命周期操作。
+> 所有脚本仅依赖 git + Python 标准库，不需要 `gh` CLI 或 API key。
+
+| 脚本 | 用途 | 用法 |
+|------|------|------|
+| `new-spec.sh` | 创建 spec 模板（含 frontmatter） | `scripts/new-spec.sh <issue-number> [title]` |
+| `verify-impl.sh` | 本地比对实现 vs spec | `scripts/verify-impl.sh <issue-number> [base-ref]` |
+| `archive-spec.sh` | 本地更新 spec 状态 frontmatter | `scripts/archive-spec.sh <issue-number> <status> [value]` |
+
+**示例**：
+
+```bash
+# 创建新 spec
+scripts/new-spec.sh 42 "Add login feature"
+# 输出: specs/issue-42/product.md + tech.md
+
+# 校验实现与 spec 是否一致
+scripts/verify-impl.sh 42
+# 输出: 验收标准 checklist + 文件变更对比报告
+
+# 归档 spec
+scripts/archive-spec.sh 42 implemented 123
+scripts/archive-spec.sh 42 deprecated "Replaced by v2 API"
+```
+
+---
+
 ## 团队工作流图
 
 ### 整体协作流程
@@ -461,6 +544,11 @@ flowchart TB
         Q -->|approve| R[合并]
         Q -->|changes| S[respond]
         S --> D
+    end
+
+    subgraph Verify["验证 & 归档"]
+        R --> V[verify-impl-against-spec]
+        V --> A2[archive-spec]
     end
     
     G --> O
@@ -539,6 +627,7 @@ flowchart LR
 .github/aicodingflow-tests/      # 测试和 fixtures
 .github/tests/                   # 自用测试
 .github/issue-triage/            # Triage 配置
+scripts/                         # 本地辅助脚本（无 GHA 依赖）
 docs/                            # 详细文档
 specs/                           # Issue Spec 目录
 ```
@@ -556,6 +645,8 @@ specs/                           # Issue Spec 目录
 | [GitHub 协作流](github-collaboration-flow.md) | 中文 | GitHub Actions 详细说明 |
 | [Agent 目录](agent-directories.md) | 中文 | `.agents`/`.claude`/`.cursor` 结构 |
 | [自进化 Skills](evolving-repo-skills.md) | 中文 | Companion Skill 自动更新 |
+| [项目历史](PROJECT-HISTORY.md) | 中英 | Spec 项目时间线与状态索引 |
+| [本地辅助脚本](README_CN.md#本地辅助脚本) | 中文 | 无 GHA 时的 spec/verify/archive 工具 |
 
 ---
 

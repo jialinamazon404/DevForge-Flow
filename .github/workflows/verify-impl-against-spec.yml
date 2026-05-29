@@ -1,0 +1,267 @@
+name: Verify Implementation Against Spec
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  id-token: write
+
+concurrency:
+  group: verify-impl-against-spec-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      skip_reason: ${{ steps.check.outputs.skip_reason }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Check if PR needs spec verification
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import subprocess, json, os, sys
+
+          pr_num = os.environ.get("PR_NUMBER", "")
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+          result = subprocess.run(
+              ["gh", "api", f"repos/{repo}/pulls/{pr_num}/files?per_page=100",
+               "--paginate", "--slurp"],
+              capture_output=True, text=True, check=True,
+          )
+          try:
+              pages = json.loads(result.stdout)
+          except json.JSONDecodeError:
+              print("should_run=false")
+              print("skip_reason=unable to parse PR files")
+              sys.exit(0)
+
+          files = []
+          if isinstance(pages, list):
+              for page in pages:
+                  if isinstance(page, list):
+                      files.extend(f.get("filename", "") for f in page)
+                  elif isinstance(page, dict):
+                      files.append(page.get("filename", ""))
+
+          spec_only = all(f.startswith("specs/") for f in files if f)
+          print(f"should_run={'false' if spec_only else 'true'}")
+          print(f"skip_reason={'spec-only PR, no verification needed' if spec_only else ''}")
+          PY
+
+      - name: Report skipped
+        if: steps.check.outputs.should_run != 'true'
+        run: echo "${{ steps.check.outputs.skip_reason }}"
+
+  verify:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+      id-token: write
+
+    steps:
+      - name: Checkout workflow scripts
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Resolve pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python3 .github/scripts/resolve_pr_event.py \
+            --repo "${{ github.repository }}" \
+            --event-name "${{ github.event_name }}" \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --pr-number "$PR_NUMBER" \
+            --output "$RUNNER_TEMP/pr_event.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Set pending check status
+        if: steps.pr.outputs.head_sha != '' && steps.pr.outputs.head_repo == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
+            -f state="pending" \
+            -f context="Spec Alignment Check" \
+            -f description="Checking implementation against spec..." \
+            -f target_url="$RUN_URL"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          repository: ${{ steps.pr.outputs.head_repo }}
+          ref: ${{ steps.pr.outputs.head_sha }}
+          path: pr-worktree
+
+      - name: Snapshot PR description
+        env:
+          PR_EVENT_PATH: ${{ steps.pr.outputs.event_path }}
+        run: python3 .github/scripts/write_pr_description.py --output pr-worktree/pr_description.txt
+
+      - name: Snapshot PR diff
+        env:
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+        working-directory: pr-worktree
+        run: |
+          git_config="$(mktemp)"
+          trap 'rm -f "$git_config"' EXIT
+          chmod 600 "$git_config"
+          {
+            printf '[http "https://github.com/"]\n'
+            printf '\textraheader = AUTHORIZATION: basic '
+            printf '%s' "x-access-token:${GITHUB_TOKEN}" | base64 | tr -d '\n'
+            printf '\n'
+          } > "$git_config"
+          GIT_CONFIG_GLOBAL="$git_config" GIT_TERMINAL_PROMPT=0 \
+            git fetch --no-tags --depth=1 \
+            "https://github.com/${GITHUB_REPOSITORY}.git" \
+            "$BASE_SHA"
+          python3 ../.github/scripts/build_pr_diff.py \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --output pr_diff.txt
+
+      - name: Snapshot spec context
+        id: spec
+        env:
+          PR_EVENT_PATH: ${{ steps.pr.outputs.event_path }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/write_spec_context.py \
+            --changed-files-from-diff pr-worktree/pr_diff.txt \
+            --output pr-worktree/spec_context.md
+
+      - name: Prepare workspace
+        run: |
+          rm -rf pr-worktree/.agents/skills
+          mkdir -p pr-worktree/.agents
+          cp -R .agents/skills pr-worktree/.agents/skills
+
+      - name: Run spec alignment check
+        uses: anomalyco/opencode/github@latest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.AGENT_API_KEY }}
+        with:
+          model: ${{ vars.AGENT_MODEL || 'anthropic/claude-sonnet-4-20250514' }}
+          prompt: |
+            First change directory to pr-worktree and do all file inspection from there.
+
+            Read pr_diff.txt and spec_context.md. Compare the implementation
+            diff against the spec context (product.md and tech.md).
+
+            Evaluate spec alignment following these rules (from
+            .agents/skills/check-impl-against-spec/SKILL.md):
+            - Extract concrete commitments from the spec (required behaviors,
+              required file changes, constraints, follow-up steps).
+            - Compare against the actual diff and checked-out files.
+            - Small implementation-level adjustments are acceptable when intent
+              is preserved.
+            - Flag only material mismatches: missing required behavior,
+              contradiction with spec decisions, significant unplanned scope,
+              absent validation/migration from tech spec.
+
+            Write spec-alignment-report.md with this format:
+
+            ## Spec Alignment Report
+
+            | Category | Count |
+            |---|---|
+            | ✅ Implemented | N |
+            | ❌ Missing | N |
+            | 🔄 Spec updated during impl | N |
+
+            ### ✅ Implemented
+            - [item] from spec that is properly implemented
+
+            ### ❌ Missing or Deviated
+            - [item] with details on what's different
+
+            ### 🔄 Spec Changes
+            - [item] where spec was updated alongside implementation
+
+            ### Notes
+            Overall assessment and recommendations.
+
+            When spec_context.md contains "No approved or repository spec
+            context was found", write a brief report stating that no spec
+            context was available for verification.
+
+            Write the report to spec-alignment-report.md in pr-worktree.
+            Do not run git commands, call GitHub APIs, or post reviews.
+            Do not modify any files other than spec-alignment-report.md.
+
+      - name: Normalize report output path
+        run: |
+          if [ -f pr-worktree/spec-alignment-report.md ]; then
+            echo "report_exists=true" >> "$GITHUB_OUTPUT"
+          elif [ -f spec-alignment-report.md ]; then
+            mv spec-alignment-report.md pr-worktree/spec-alignment-report.md
+            echo "report_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "report_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        id: report
+
+      - name: Set check status based on report
+        if: steps.report.outputs.report_exists == 'true' && steps.pr.outputs.head_sha != '' && steps.pr.outputs.head_repo == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
+            -f state="success" \
+            -f context="Spec Alignment Check" \
+            -f description="Spec alignment report generated" \
+            -f target_url="$RUN_URL"
+
+      - name: Set check status when no spec context
+        if: steps.report.outputs.report_exists != 'true' && steps.pr.outputs.head_sha != '' && steps.pr.outputs.head_repo == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
+            -f state="success" \
+            -f context="Spec Alignment Check" \
+            -f description="No spec context available for this PR" \
+            -f target_url=""
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: spec-alignment-report-${{ github.run_id }}
+          path: |
+            pr-worktree/spec-alignment-report.md
+            pr-worktree/pr_diff.txt
+            pr-worktree/spec_context.md

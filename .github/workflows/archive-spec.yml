@@ -1,0 +1,75 @@
+name: Archive Spec
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Issue number to archive"
+        required: false
+        default: ""
+      status:
+        description: "Archive status"
+        required: true
+        default: "implemented"
+        type: choice
+        options:
+          - implemented
+          - deprecated
+      pr_number:
+        description: "Implementation PR number (for implemented)"
+        required: false
+        default: ""
+      reason:
+        description: "Deprecation reason (for deprecated)"
+        required: false
+        default: ""
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: archive-spec-${{ inputs.issue || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  archive:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.action == 'closed' &&
+        github.event.pull_request.merged == true
+      )
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Archive spec
+        id: archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/archive_spec.py \
+            --repo "${{ github.repository }}" \
+            --issue "${{ inputs.issue || '' }}" \
+            --status "${{ inputs.status || 'implemented' }}" \
+            --pr-number "${{ inputs.pr_number || '' }}" \
+            --reason "${{ inputs.reason || '' }}" \
+            --default-branch "${{ github.event.repository.default_branch }}" \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Report result
+        run: |
+          echo "changed: ${{ steps.archive.outputs.changed }}"
+          echo "branch: ${{ steps.archive.outputs.branch }}"
+          echo "skip_reason: ${{ steps.archive.outputs.skip_reason }}"
