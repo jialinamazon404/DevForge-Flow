@@ -46,10 +46,19 @@ DevForge-Flow 提供两类核心能力：
 
 ## 快速开始
 
-### 一行安装
+### 一行安装（完整版）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/target-repo
+```
+
+### 一行安装（精简版 — 无 AI 依赖）
+
+> 不需要 `AGENT_API_KEY`，仅安装 CI 测试 + Spec 归档等非 AI 工作流，
+> 本地 Skills 和脚本仍可正常使用。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jialinamazon404/DevForge-Flow/main/install.sh | bash -s -- --target /path/to/target-repo --lite
 ```
 
 ### 克隆安装
@@ -57,25 +66,37 @@ curl -fsSL https://raw.githubusercontent.com/jialinamazon404/DevForge-Flow/main/
 ```bash
 git clone https://github.com/jialinamazon404/DevForge-Flow.git
 cd DevForge-Flow
+
+# 完整版（含 AI 工作流）
 ./install.sh --target /path/to/target-repo
+
+# 精简版（不含 AI 工作流）
+./install.sh --target /path/to/target-repo --lite
 ```
 
 ### 预览变更
 
 ```bash
 ./install.sh --target /path/to/target-repo --dry-run
+./install.sh --target /path/to/target-repo --lite --dry-run
 ```
 
 ### 依赖
 
 安装脚本需要：`bash`、`git`、`rsync`（一行安装还需 `curl`）
 
-**同步内容**：
-- `.agents/skills/` — OpenCode Skills
-- `.github/scripts/` — Python 辅助脚本
-- `.github/aicodingflow-tests/` — 测试和 fixtures
-- `.github/workflows/` — 受管工作流（不含 `ci.yml`）
-- `scripts/` — 本地辅助脚本（无 GHA 依赖）
+**安装模式对比**：
+
+| 内容 | 完整版 | 精简版 (`--lite`) |
+|------|--------|-------------------|
+| `.agents/skills/` | ✅ 全部 | ✅ 全部（本地仍可用） |
+| `scripts/` | ✅ | ✅ |
+| `.github/scripts/` | ✅ | ✅ |
+| `.github/aicodingflow-tests/` | ✅ | ✅ |
+| `.github/workflows/ci.yml` | ✅ 含 `ai-review` job | ✅ 精简版（仅 test + compile） |
+| AI 工作流（triage、spec、impl、review、verify、respond、update-*） | ✅ 8 个 | ❌ 不安装 |
+| 非 AI 工作流（plan-approved、archive-spec、generate-project-history） | ✅ 4 个 | ✅ 4 个 |
+| 需要 `AGENT_API_KEY` | ✅ | ❌ |
 
 ---
 
@@ -110,6 +131,92 @@ $bootstrap-issue-config
 自动生成：
 - `.github/issue-triage/config.json` — Label 定义
 - `.github/CODEOWNERS` — 代码所有权
+
+---
+
+## 安装模式详解
+
+### 完整版（默认）
+
+安装所有 GitHub Actions 工作流 + 全量 Skills + 辅助脚本，**需要配置 `AGENT_API_KEY`**。
+
+适用场景：团队有 Anthropic API Key，希望 GitHub 上的 Issue、Spec、PR 等环节由 AI 自动介入。
+
+**工作流清单**（12 个）：
+
+| 工作流 | 触发方式 | AI 依赖 | 功能 |
+|--------|----------|----------|------|
+| `ci.yml` | PR push | ✅ ai-review job | 运行测试 + 编译 + AI PR Review |
+| `triage-issue.yml` | Issue open/edit | ✅ | 自动分类、标签、复现性评估 |
+| `create-spec-from-issue.yml` | `ready-to-spec` 标签 | ✅ | AI 生成 product.md + tech.md |
+| `create-implementation-from-issue.yml` | `ready-to-implement` 标签 | ✅ | AI 自动实现代码 |
+| `review-pr.yml` | CI dispatch | ✅ | AI PR Review + inline comments |
+| `verify-impl-against-spec.yml` | PR push（有 spec） | ✅ | AI 对齐 Spec ↔ 实现 |
+| `respond-to-pr-comment.yml` | `/fix` PR comment | ✅ | AI 修改代码回应 PR comment |
+| `update-pr-review.yml` | 定时 / dispatch | ✅ | 从人工反馈学习更新 Review Skill |
+| `update-dedupe.yml` | 定时 / dispatch | ✅ | 从重复关闭学习更新 Dedupe Skill |
+| `plan-approved.yml` | `plan-approved` 标签 | ❌ | 同步 Issue 状态（标签/assignee） |
+| `archive-spec.yml` | PR merge / dispatch | ❌ | 归档 Spec 状态（implemented/deprecated） |
+| `generate-project-history.yml` | 定时 / dispatch | ❌ | 生成项目历史文档 |
+
+### 精简版（`--lite` / `--local`）
+
+仅安装不需要 AI 的工作流 + 全量 Skills + 辅助脚本，**不需要 `AGENT_API_KEY`**。
+
+适用场景：没有 Anthropic API Key，或不希望 AI 自动介入 GitHub 协作环节，但仍想使用本地开发 Skills。
+
+**工作流清单**（4 个）：
+
+| 工作流 | 触发方式 | 功能 |
+|--------|----------|------|
+| `ci.yml`（精简版） | PR push | 运行测试 + 编译（无 ai-review job） |
+| `plan-approved.yml` | `plan-approved` 标签 | 同步 Issue 状态 |
+| `archive-spec.yml` | PR merge / dispatch | 归档 Spec 状态 |
+| `generate-project-history.yml` | 定时 / dispatch | 生成项目历史文档 |
+
+**未安装的工作流**（8 个，均需要 `AGENT_API_KEY`）：
+
+- `triage-issue.yml` — Issue 自动分类
+- `create-spec-from-issue.yml` — AI 生成 Spec
+- `create-implementation-from-issue.yml` — AI 自动实现
+- `review-pr.yml` — AI PR Review
+- `verify-impl-against-spec.yml` — AI Spec 对齐
+- `respond-to-pr-comment.yml` — `/fix` PR comment 响应
+- `update-pr-review.yml` — Review 学习
+- `update-dedupe.yml` — Dedupe 学习
+
+**精简版 CI 的区别**：
+
+| 项目 | 完整版 CI | 精简版 CI |
+|------|-----------|----------|
+| `permissions` | `actions: write`, `contents: read` | `contents: read` |
+| `test` job | ✅ 单元测试 + py_compile | ✅ 单元测试 + py_compile（相同） |
+| `ai-review` job | ✅ dispatch review-pr.yml | ❌ 不存在 |
+
+### 两种模式共有的内容
+
+无论完整版还是精简版，以下内容始终安装：
+
+| 内容 | 说明 |
+|------|------|
+| `.agents/skills/` | 全量 Skills（本地 OpenCode/Qoder 可直接调用） |
+| `.github/scripts/` | Python 辅助脚本 |
+| `.github/aicodingflow-tests/` | 测试和 fixtures |
+| `scripts/` | 本地脚本（new-spec、verify-impl、archive-spec） |
+
+### 如何升级到完整版
+
+精简版随时可升级为完整版：
+
+1. 在目标仓库 Settings > Secrets and Variables 中配置：
+   - **Secret**: `AGENT_API_KEY`（Anthropic API Key）
+   - **Variable**: `AGENT_MODEL`（如 `anthropic/claude-sonnet-4-20250514`）
+   - **Variable**: `AGENT_LOGIN`（Agent GitHub 登录名）
+2. 重新运行安装（不带 `--lite`）：
+   ```bash
+   ./install.sh --target /path/to/target-repo
+   ```
+3. 安装脚本会用 rsync 同步缺失的 AI 工作流，并覆盖精简版 `ci.yml` 为完整版。
 
 ---
 
