@@ -294,6 +294,90 @@ class PrepareIssueSpecContextTest(unittest.TestCase):
         self.assertFalse(prepare_issue_spec_context.comment_mentions_login("please @codex-action", "codex"))
         self.assertFalse(prepare_issue_spec_context.comment_mentions_login("> @codex quoted", "codex"))
 
+    def test_extract_snxxx_from_html_comment(self) -> None:
+        issue = {"body": "Description of the issue.\n\n<!-- SNXXX: SN001 -->\n\nMore details.", "title": "Feature request"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN001",
+        )
+
+    def test_extract_snxxx_from_html_comment_with_different_formats(self) -> None:
+        issue = {"body": "Issue body\n<!-- SNXXX: SN-123 -->\n", "title": "Feature"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN-123",
+        )
+
+    def test_extract_snxxx_from_title_prefix_as_fallback(self) -> None:
+        issue = {"body": "Issue body without SNXXX comment", "title": "SN001: Feature request"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN001",
+        )
+
+    def test_extract_snxxx_returns_empty_when_not_found(self) -> None:
+        issue = {"body": "Issue body without any SNXXX", "title": "Feature request"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "",
+        )
+
+    def test_extract_snxxx_prefers_html_comment_over_title(self) -> None:
+        issue = {"body": "Issue body\n<!-- SNXXX: SN002 -->\n", "title": "SN001: Title with different SNXXX"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN002",
+        )
+
+    def test_extract_snxxx_handles_multiple_html_comments(self) -> None:
+        issue = {"body": "Issue body\n<!-- SNXXX: SN001 -->\n<!-- SNXXX: SN002 -->\n", "title": "Feature"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN001",
+        )
+
+    def test_extract_snxxx_handles_whitespace_in_html_comment(self) -> None:
+        issue = {"body": "Issue body\n<!-- SNXXX:   SN001   -->\n", "title": "Feature"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN001",
+        )
+
+    def test_extract_snxxx_handles_title_prefix_with_scope(self) -> None:
+        issue = {"body": "No SNXXX in body", "title": "SN123: feat(auth): add OAuth2"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN123",
+        )
+
+    def test_extract_snxxx_empty_value_in_html_comment(self) -> None:
+        issue = {"body": "Issue body\n<!-- SNXXX:  -->\n", "title": "SN001: Title"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN001",
+        )
+
+    def test_extract_snxxx_handles_flexible_title_format(self) -> None:
+        issue = {"body": "No SNXXX", "title": "SN-456: Feature request"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN-456",
+        )
+
+    def test_extract_snxxx_handles_missing_body(self) -> None:
+        issue = {"body": None, "title": "SN001: Feature request"}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN001",
+        )
+
+    def test_extract_snxxx_handles_missing_title(self) -> None:
+        issue = {"body": "Issue body\n<!-- SNXXX: SN002 -->\n", "title": None}
+        self.assertEqual(
+            prepare_issue_spec_context.extract_snxxx_from_issue(issue),
+            "SN002",
+        )
+
     def test_should_not_run_without_ready_to_spec(self) -> None:
         args = argparse.Namespace(
             force=False,

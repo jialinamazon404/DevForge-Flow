@@ -180,7 +180,16 @@ jobs:
 
             pr-metadata.json must be a JSON object with:
             - branch_name: the branch the outer workflow should commit and push
-            - pr_title: conventional commit style title based on actual changes
+            - pr_title: If issue_context.json contains "snxxx" field with a non-empty
+              value (e.g., "SN001"), use format "SNXXX: type(scope): description".
+              Otherwise use standard conventional commit format "type(scope): description".
+
+              Examples with SNXXX:
+              - "SN001: feat(api): implement OAuth2 flow"
+              - "SN123: fix(core): resolve null pointer bug"
+              Examples without SNXXX (historical issues):
+              - "feat(api): implement OAuth2 flow"
+              - "fix(core): resolve null pointer bug"
             - pr_summary: complete markdown PR body whose first line is exactly
               "Closes #${{ steps.issue.outputs.issue_number }}"
             - intended_files: repository-relative implementation files that

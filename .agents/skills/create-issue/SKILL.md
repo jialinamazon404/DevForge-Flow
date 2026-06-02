@@ -91,7 +91,30 @@ Only create a public issue when the user explicitly confirms the report is safe
 for public disclosure and fully redacted. Never include raw secrets, tokens,
 credentials, private keys, exploit payloads, or private customer data.
 
-### 4. Build Title And Body
+### 4. Ask for SNXXX Requirement Code
+
+Before building title and body, ask the user for the requirement tracking code
+(SNXXX format, e.g., `SN001`, `SN123`, `SN999`). This code tracks external
+requirements and will be stored in two places:
+
+1. **Issue title prefix**: `SNXXX: <original title>`
+2. **Issue body metadata**: `<!-- SNXXX: SNXXX -->` HTML comment for parsing
+
+Ask: "请输入需求编号(SNXXX格式,如SN001、SN123)："
+
+If the user provides a code (e.g., `SN001`), use it. If the user declines or
+skips, ask: "是否继续创建issue？需求编号是可选字段。"
+
+If user confirms to proceed without SNXXX, create the issue without the SNXXX
+prefix and metadata (for backward compatibility with historical issues).
+
+Example transformations:
+- User input: `SN001`
+- Original title: "Add OAuth2 support"
+- Final title: "SN001: Add OAuth2 support"
+- Body includes: `<!-- SNXXX: SN001 -->`
+
+### 5. Build Title And Body
 
 Fill only facts from the user request, attachments, and current conversation.
 Do not invent versions, logs, labels, assignees, milestones, dates, priority, or
@@ -107,7 +130,7 @@ For YAML issue forms, convert relevant `body` prompts into markdown for
 Keep one issue to one actionable problem or request. If the conversation
 contains unrelated requests, ask whether to create one issue per request.
 
-### 5. Metadata
+### 6. Metadata
 
 Do not add classification labels by default. If the repository has automated
 triage, let that workflow apply labels after creation. Pass labels only when the
@@ -121,7 +144,7 @@ Do not perform broad duplicate searches before creation by default. When the
 repository has automated triage, let its `dedupe-issue` flow identify and label
 duplicates after creation.
 
-### 6. Confirm When Needed
+### 7. Confirm When Needed
 
 Creating a GitHub issue is an external side effect. If the user explicitly asked
 to create it and repo, template/plain fallback, title, body, and metadata are
@@ -135,7 +158,7 @@ Always ask before creating when the repository is uncertain, multiple templates
 fit, required fields are materially unknown, the issue may disclose sensitive
 information, or the user only asked to draft/prepare/write.
 
-### 7. Create And Report
+### 8. Create And Report
 
 Use GitHub CLI with argv-safe values:
 
@@ -147,7 +170,7 @@ Pass repository, title, body file, and metadata as separate arguments. Do not
 paste user- or conversation-derived title/body text directly into a shell
 command; if using shell variables, quote expansions and avoid `eval` or command
 substitution. Add `--label`, `--assignee`, `--milestone`, or project flags only
-for metadata selected in step 5.
+for metadata selected in step 6.
 
 If `gh` is unavailable, unauthenticated, or lacks permission, do not use
 `gh api` or raw HTTP fallback. Report the exact repository, title, body, and

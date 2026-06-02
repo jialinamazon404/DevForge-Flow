@@ -90,6 +90,26 @@ def fetch_default_branch(repo: str) -> str:
     return default_branch
 
 
+def extract_snxxx_from_issue(issue: dict[str, Any]) -> str:
+    """Extract SNXXX requirement code from issue body or title.
+    
+    Returns SNXXX code if found, empty string for backward compatibility with historical issues.
+    """
+    body = issue.get("body") or ""
+    title = issue.get("title") or ""
+    
+    match = re.search(r'<!--\s*SNXXX:\s*(\S+)\s*-->', body)
+    if match:
+        return match.group(1).strip()
+    
+    title_match = re.match(r'^SN\S+:\s+', title)
+    if title_match:
+        snxxx_part = title_match.group(0).rstrip(": ").strip()
+        return snxxx_part
+    
+    return ""
+
+
 def label_names(issue: dict[str, Any]) -> list[str]:
     return [label.get("name", "") for label in issue.get("labels", []) if label.get("name")]
 
@@ -272,6 +292,7 @@ def main() -> None:
     comments = fetch_comments(args.repo, issue_number)
     default_branch = fetch_default_branch(args.repo)
     paths = spec_paths(issue_number)
+    snxxx = extract_snxxx_from_issue(issue)
     run, reason = should_run(args, issue)
     trigger_comment = triggering_comment(args.event_path)
     historical_comments = remove_triggering_comment(comments, trigger_comment)
@@ -286,6 +307,7 @@ def main() -> None:
         "historical_comments_count": len(historical_comments),
         "triggering_comment": trigger_comment,
         "default_branch": default_branch,
+        "snxxx": snxxx,
         **paths,
         "coauthor_directives": coauthor_directives,
         "should_run": run,

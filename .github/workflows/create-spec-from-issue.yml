@@ -122,8 +122,16 @@ jobs:
 
             Write pr-metadata.json as a JSON object with:
             - branch_name: issue_context.json.target_branch
-            - pr_title: concise conventional-commit style PR title, such as
-              "docs(spec): create issue ${{ steps.issue.outputs.issue_number }} specs"
+            - pr_title: If issue_context.json contains "snxxx" field with a non-empty
+              value (e.g., "SN001"), use format "SNXXX: type(scope): description".
+              Otherwise use standard conventional commit format "type(scope): description".
+
+              Examples with SNXXX:
+              - "SN001: docs(spec): create issue 42 specs"
+              - "SN123: feat(api): add OAuth2 support"
+              Examples without SNXXX (historical issues):
+              - "docs(spec): create issue 42 specs"
+              - "feat(api): add OAuth2 support"
             - pr_summary: complete markdown PR body. It must include the exact
               non-closing issue reference "Refs #${{ steps.issue.outputs.issue_number }}".
 

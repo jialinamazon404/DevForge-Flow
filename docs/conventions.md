@@ -57,10 +57,20 @@ Refs #<issueID>
 ```
 
 **Requirement Code (SNXXX):**
-- External requirement tracking code (e.g., `SN001`, `SN123`, `SN999`)
-- Must be present at the start of commit message
-- No validation required - just needs to match external requirement system
-- Format: `SN` + 3-digit number
+- External requirement tracking code entered by user when creating issue
+- Format: `SN` + digits (e.g., `SN001`, `SN123`, `SN999`, or flexible `SN-123`)
+- Stored in issue body HTML comment: `<!-- SNXXX: SN001 -->`
+- Also appears in issue title prefix: "SN001: issue title"
+- Extracted automatically by workflows from issue context
+- When absent (historical issues or user skipped), use standard format without SNXXX
+- No strict validation - accept any non-empty SNXXX value
+
+**Creation Process:**
+1. User creates issue via `create-issue` skill
+2. Agent asks: "请输入需求编号(SNXXX格式,如SN001、SN123)："
+3. User inputs SNXXX code or skips
+4. Agent stores SNXXX in issue title and body metadata
+5. Workflows extract SNXXX and use in commit messages and PR titles
 
 **Types:** `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`
 

@@ -41,6 +41,7 @@ DevForge-Flow 提供两类核心能力：
 | 🔄 **闭环学习** | 人工反馈自动更新 Companion Skills（`review-pr-repo`, `dedupe-issue-repo`） |
 | 🛡️ **安全护栏** | 保护标签控制、禁止伪造 Issue ID、禁止 force push |
 | 🖥️ **本地辅助脚本** | 无 GHA 时也可手动创建 spec、校验实现、归档状态 |
+| 📋 **需求编号追踪** | Issue 创建时输入 SNXXX，自动传递到提交消息和 PR 标题 |
 
 ---
 
@@ -129,8 +130,9 @@ $bootstrap-issue-config
 1. 查找仓库根目录和 Issue 模板
 2. 分类请求 → 选择模板（bug/feature/docs）
 3. 安全报告 → 私有渠道（禁止公开敏感细节）
-4. 构建标题/正文（仅用事实，禁止伪造元数据）
-5. `gh issue create` 提交
+4. **询问 SNXXX** → 用户输入需求编号（如 `SN001`），可选跳过
+5. 构建标题/正文（含 SNXXX 元数据：标题前缀 + 正文 HTML 注释）
+6. `gh issue create` 提交
 
 **关键参数**（隐含于上下文）：
 
@@ -214,6 +216,11 @@ $bootstrap-issue-config
 **用途**：从真实 Diff 创建原子提交
 
 **提交格式**：`SNXXX: type(scope): summary`
+
+**SNXXX 来源**：
+- Issue 正文 HTML 注释：`<!-- SNXXX: SN001 -->`（优先）
+- Issue 标题前缀：`SN001: issue title`（备用）
+- 历史 Issue 无 SNXXX 时：使用标准格式（无 SNXXX 前缀）
 
 **Issue 关联**：
 - `Fixes #123` — 关闭 Issue

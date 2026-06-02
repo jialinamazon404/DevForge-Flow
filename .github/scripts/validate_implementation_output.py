@@ -14,7 +14,7 @@ from implementation_file_filters import TEMP_WORKFLOW_PATHS, is_generated_path
 
 REQUIRED_METADATA_FIELDS = {"branch_name", "pr_title", "pr_summary", "intended_files"}
 STRING_METADATA_FIELDS = {"branch_name", "pr_title", "pr_summary"}
-CONVENTIONAL_TITLE_RE = re.compile(r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\([a-z0-9._-]+\))?: .+")
+CONVENTIONAL_TITLE_RE = re.compile(r"^((SN\S+):\s+)?(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\([a-z0-9._-]+\))?: .+")
 
 
 def load_json(path: Path) -> dict[str, Any]:

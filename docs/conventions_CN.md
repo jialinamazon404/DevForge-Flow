@@ -57,10 +57,20 @@ Refs #<issueID>
 ```
 
 **需求编号 (SNXXX):**
-- 外部需求追踪编号（如 `SN001`, `SN123`, `SN999`）
-- 必须位于提交消息开头
-- 无需校验 — 只需与外部需求系统匹配
-- 格式: `SN` + 3位数字
+- 用户创建issue时输入的外部需求追踪编号
+- 格式：`SN` + 数字（如 `SN001`, `SN123`, `SN999` 或灵活的 `SN-123`）
+- 存储在issue body的HTML注释中：`<!-- SNXXX: SN001 -->`
+- 同时出现在issue标题前缀："SN001: issue title"
+- 工作流自动从issue context中提取并用于commit message和PR title
+- 如果缺失（历史issue或用户跳过），使用标准格式不带SNXXX前缀
+- 无严格验证 - 接受任何非空SNXXX值
+
+**创建流程:**
+1. 用户通过 `create-issue` skill创建issue
+2. Agent询问："请输入需求编号(SNXXX格式,如SN001、SN123)："
+3. 用户输入SNXXX编号或跳过
+4. Agent将SNXXX存储到issue标题和body metadata中
+5. 工作流提取SNXXX并用于commit消息和PR标题
 
 **类型:** `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`
 

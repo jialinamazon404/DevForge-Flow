@@ -45,7 +45,20 @@ Default format unless repo conventions say otherwise:
 SNXXX: type(scope): summary
 ```
 
-**Requirement Code (SNXXX):** External requirement tracking code (e.g., `SN001`, `SN123`). Must be present at the start of commit message. No validation required.
+**Requirement Code (SNXXX):** External requirement tracking code. When present,
+prepend to commit message: "SNXXX: type(scope): summary".
+
+Sources (in priority order):
+1. **Issue context**: Extract from issue_context.json.snxxx field (prepared by
+   workflow scripts from issue body or title)
+2. **Issue body HTML comment**: Pattern `<!-- SNXXX: SN001 -->`
+3. **Issue title prefix**: Pattern "SN001: issue title"
+
+When SNXXX is absent (historical issues or user skipped), use standard format:
+"type(scope): summary".
+
+Format is flexible: accept "SN001", "SN-123", or similar patterns. No strict
+validation required.
 
 Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`. Use a scope when obvious. Avoid `update`, `changes`, `misc`, and `wip`.
 
