@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify implementation against spec for a given issue.
 
-Usage: scripts/verify-impl.sh <issue-number> [base-ref]
+Usage: scripts/verify-impl.py <issue-number> [base-ref]
 
 Reads specs/issue-<N>/product.md and tech.md, compares with git diff
 between HEAD and base-ref (default: main), and outputs a structured report.

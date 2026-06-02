@@ -447,17 +447,16 @@ $bootstrap-issue-config
 
 #### 💬 respond-to-pr-comment.yml
 
-**触发**：PR 评论含 `@AGENT_LOGIN` + 命令
+**触发**：PR 评论含 `@AGENT_LOGIN` + `/fix` 命令
 
 **命令**：
 
-| 命令 | 用途 |
-|------|------|
-| `/explain` | 解释代码变更 |
-| `/implement` | 实现请求变更 |
-| `/review` | 请求 AI Review |
-| `/fix` | 修复问题 |
-| `/approve` | 批准之前的 REQUEST_CHANGES |
+| 命令 | 用途 | Workflow |
+|------|------|----------|
+| `/fix` | 修复问题或实现变更 | `respond-to-pr-comment.yml` |
+| `/review` | 请求 AI Review | `review-pr.yml` |
+
+> `/explain`、`/implement`、`/approve` 为规划中的命令，当前未实现。
 
 ---
 
@@ -485,8 +484,8 @@ $bootstrap-issue-config
 | 脚本 | 用途 | 用法 |
 |------|------|------|
 | `new-spec.sh` | 创建 spec 模板（含 frontmatter） | `scripts/new-spec.sh <issue-number> [title]` |
-| `verify-impl.sh` | 本地比对实现 vs spec | `scripts/verify-impl.sh <issue-number> [base-ref]` |
-| `archive-spec.sh` | 本地更新 spec 状态 frontmatter | `scripts/archive-spec.sh <issue-number> <status> [value]` |
+| `verify-impl.py` | 本地比对实现 vs spec | `scripts/verify-impl.py <issue-number> [base-ref]` |
+| `archive-spec.py` | 本地更新 spec 状态 frontmatter | `scripts/archive-spec.py <issue-number> <status> [value]` |
 
 ---
 
@@ -580,13 +579,12 @@ flowchart LR
 
 ### PR 命令
 
-| 命令 | 用途 |
-|------|------|
-| `/explain` | 解释代码 |
-| `/implement` | 实现变更 |
-| `/review` | 请求 AI Review |
-| `/fix` | 修复问题 |
-| `/approve` | 批准之前的拒绝 |
+| 命令 | 用途 | Workflow |
+|------|------|----------|
+| `/fix` | 修复问题或实现变更 | `respond-to-pr-comment.yml` |
+| `/review` | 请求 AI Review | `review-pr.yml` |
+
+> `/explain`、`/implement`、`/approve` 为规划中的命令，当前未实现。
 
 ---
 

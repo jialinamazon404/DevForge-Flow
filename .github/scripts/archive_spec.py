@@ -19,6 +19,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -164,11 +165,9 @@ def archive_spec(
     new_text = frontmatter + "\n\n" + body.lstrip("\n")
 
     # Checkout default branch, write, commit, push, PR
-    run_gh(["repo", "clone", repo, "--", "--", "--depth=1", "--branch", default_branch, "/tmp/archive-worktree"],
-           check=False)
-    worktree = Path("/tmp/archive-worktree")
-    if not worktree.exists():
-        run_gh(["repo", "clone", repo, "--", "--depth=1", "--branch", default_branch, str(worktree)])
+    worktree_dir = tempfile.mkdtemp(prefix="archive-worktree-")
+    worktree = Path(worktree_dir)
+    run_gh(["repo", "clone", repo, "--", "--depth=1", "--branch", default_branch, str(worktree)])
 
     spec_path = worktree / "specs" / f"issue-{issue_number}" / "product.md"
     spec_path.parent.mkdir(parents=True, exist_ok=True)

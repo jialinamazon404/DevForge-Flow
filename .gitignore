@@ -9,10 +9,23 @@ __pycache__/
 htmlcov/
 
 /pr_description.txt
+/pr_description.md
 /pr_diff.txt
 /spec_context.md
 /review.json
 /.local_review_baseline.status
 /implementation_summary.md
+/issue_context.json
+/issue_comments.txt
+/pr-metadata.json
+/pr_comment_context.json
+/pr_event.json
+/review_comment_ids.json
+/resolved_review_comments.json
+/validation-output.txt
+/validation-error.txt
+/branch-start-shas.json
+/implementation-output/
+/.ai-runtime/
 /.worktrees/
 /.omc/

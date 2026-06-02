@@ -104,6 +104,12 @@ Checklist of acceptance criteria. Each item should be testable/verifiable.
 PRODUCT
 
 cat > "$TECH_FILE" <<TECH
+---
+status: active
+issue: ${ISSUE}
+created_at: ${TODAY}
+---
+
 # Tech Spec: ${TITLE}
 
 ## 1. Problem

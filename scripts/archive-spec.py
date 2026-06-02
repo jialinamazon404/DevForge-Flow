@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Archive a spec by updating its YAML frontmatter status.
 
-Usage: scripts/archive-spec.sh <issue-number> implemented [pr-number]
-   or: scripts/archive-spec.sh <issue-number> deprecated [reason]
+Usage: scripts/archive-spec.py <issue-number> implemented [pr-number]
+   or: scripts/archive-spec.py <issue-number> deprecated [reason]
 
 The script reads specs/issue-<N>/product.md, adds or updates the YAML
 frontmatter with the given status, and writes it back in-place.

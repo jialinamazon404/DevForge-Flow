@@ -37,7 +37,8 @@ jobs:
             .github/scripts/*.py \
             .agents/skills/implement-specs/scripts/*.py \
             .agents/skills/review-pr/scripts/validate_review_json.py \
-            .agents/skills/update-pr-review/scripts/*.py
+            .agents/skills/update-pr-review/scripts/*.py \
+            .agents/skills/update-dedupe/scripts/*.py
 
   ai-review:
     needs: test

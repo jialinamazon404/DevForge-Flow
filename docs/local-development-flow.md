@@ -142,11 +142,11 @@ flowchart LR
     B --> C[编写 Spec]
     C --> D[git-branch]
     D --> E[实现功能]
-    E --> F[verify-impl.sh]
+    E --> F[verify-impl.py]
     F --> G[git-commit]
     G --> H[create-pr]
     H --> I[审核合并]
-    I --> J[archive-spec.sh]
+    I --> J[archive-spec.py]
 ```
 
 ### 详细步骤
@@ -158,11 +158,11 @@ flowchart LR
 | 3. 编写 Spec | 手动编辑 | 编辑器 | 填充 product.md 和 tech.md 内容 |
 | 4. 创建开发分支 | OpenCode skill | `$git-branch #N` | `feat/xxx-N` 或 `spec/xxx-N` |
 | 5. 实现功能 | 手动开发 | — | 代码变更 |
-| 6. 验证实现 | 本地脚本 | `./scripts/verify-impl.sh N` | 验证报告（比对 spec vs diff） |
+| 6. 验证实现 | 本地脚本 | `./scripts/verify-impl.py N` | 验证报告（比对 spec vs diff） |
 | 7. 提交代码 | OpenCode skill | `$git-commit` | Git commit（含 SNXXX 前缀） |
 | 8. 推送分支 | OpenCode skill | `$git-push` | 推送到 remote |
 | 9. 创建 PR | OpenCode skill | `$create-pr` | GitHub PR |
-| 10. 归档 Spec | 本地脚本 | `./scripts/archive-spec.sh N implemented PR号` | 更新 spec 状态为 `implemented` |
+| 10. 归档 Spec | 本地脚本 | `./scripts/archive-spec.py N implemented PR号` | 更新 spec 状态为 `implemented` |
 
 ---
 
@@ -224,12 +224,12 @@ created_at: <date>
 
 ---
 
-#### verify-impl.sh — 验证实现与 Spec 对齐
+#### verify-impl.py — 验证实现与 Spec 对齐
 
 **用法：**
 
 ```bash
-./scripts/verify-impl.sh <issue-number> [--base <ref>]
+python3 scripts/verify-impl.py <issue-number> [--base <ref>]
 ```
 
 **参数：**
@@ -285,12 +285,12 @@ created_at: <date>
 
 ---
 
-#### archive-spec.sh — 归档 Spec 状态
+#### archive-spec.py — 归档 Spec 状态
 
 **用法：**
 
 ```bash
-./scripts/archive-spec.sh <issue-number> <status> [value]
+python3 scripts/archive-spec.py <issue-number> <status> [value]
 ```
 
 **参数：**
@@ -327,10 +327,10 @@ implementation_pr: 123        # 新增（PR 编号）
 
 ```bash
 # 标记为已实现，关联 PR #123
-./scripts/archive-spec.sh 42 implemented 123
+python3 scripts/archive-spec.py 42 implemented 123
 
 # 标记为已弃用，填写原因
-./scripts/archive-spec.sh 42 deprecated "Feature cancelled by stakeholder"
+python3 scripts/archive-spec.py 42 deprecated "Feature cancelled by stakeholder"
 ```
 
 ---
@@ -344,10 +344,10 @@ implementation_pr: 123        # 新增（PR 编号）
 | 编写 Spec 内容 | 手动编辑 | **AI 自动**生成 product.md + tech.md |
 | 创建开发分支 | `$git-branch` | **自动**触发（添加 `plan-approved` 标签） |
 | 实现功能 | 手动开发 | **AI 自动**实现代码 |
-| 验证实现 | `./scripts/verify-impl.sh` | **自动**运行 `verify-impl-against-spec.yml` |
+| 验证实现 | `python3 scripts/verify-impl.py` | **自动**运行 `verify-impl-against-spec.yml` |
 | 提交/推送 | `$git-commit` + `$git-push` | 自动提交到实现分支 |
 | 创建 PR | `$create-pr` | **自动**创建实现 PR |
-| 归档 Spec | `./scripts/archive-spec.sh` | **自动**触发（PR 合并） |
+| 归档 Spec | `python3 scripts/archive-spec.py` | **自动**触发（PR 合并） |
 
 **关键差异：**
 
@@ -361,8 +361,8 @@ implementation_pr: 123        # 新增（PR 编号）
 | 脚本 | 依赖 |
 |------|------|
 | `new-spec.sh` | `bash`、`git`、`gh`（可选，用于自动获取标题） |
-| `verify-impl.sh` | `python3`、`git` |
-| `archive-spec.sh` | `python3` |
+| `verify-impl.py` | `python3`、`git` |
+| `archive-spec.py` | `python3` |
 
 **无需配置：**
 
@@ -394,7 +394,7 @@ $git-branch #42        # 输出：feat/user-profile-42
 # ... 开发代码 ...
 
 # 6. 验证实现
-./scripts/verify-impl.sh 42
+python3 scripts/verify-impl.py 42
 
 # 7. 提交
 $git-commit            # 输出：SN001: feat(profile): add user profile page
@@ -406,7 +406,7 @@ $git-push
 $create-pr
 
 # 10. PR 合并后归档
-./scripts/archive-spec.sh 42 implemented 123
+python3 scripts/archive-spec.py 42 implemented 123
 ```
 
 #### 场景 2：团队协作（混合模式）
