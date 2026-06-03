@@ -118,7 +118,46 @@ ls -d specs/issue-*/ 2>/dev/null | wc -l
 
 If the count is greater than zero, the project has AICodingFlow-compliant
 specs in the exact `specs/issue-N/product.md` + `tech.md` convention.
-Skip initialization and proceed to Step 6.
+
+Before skipping to Step 6, also check the **spec lifecycle status**.
+In the AICodingFlow ecosystem, specs have three statuses:
+
+| Status | Meaning | Expected for historical projects |
+|--------|---------|-------------------------------|
+| `active` | In progress, not yet implemented | Should be few or zero |
+| `implemented` | Feature shipped, spec archived | Most specs should be this |
+| `deprecated` | Feature cancelled or removed | Some may exist |
+| `unknown` | No YAML frontmatter found | Legacy specs |
+
+```bash
+# Check spec status from frontmatter
+rg "^status:" specs/issue-*/product.md 2>/dev/null
+```
+
+If any specs have `status: active` and the project is a historical/mature
+project (many commits, old age from Step 2), this likely means those specs
+were never archived after their features were shipped.
+
+Ask the user:
+> "I found X specs with `status: active` in a mature project. These may
+> represent completed features that were never archived. Would you like me
+> to review each one and suggest archiving them as `implemented` or
+> `deprecated`?"
+
+If the user agrees, for each `active` spec:
+- Read the spec content to understand what feature it describes
+- Check whether that feature exists in the current codebase (grep for
+  key terms, check for relevant code)
+- If the feature **exists**: suggest archiving as `implemented`
+- If the feature **was cancelled or removed**: suggest archiving as
+  `deprecated` with a reason
+- Use `scripts/archive-spec.py <issue-number> <status> [value]` to
+  update the frontmatter locally
+
+After resolving any un-archived specs, proceed to Step 6.
+
+If all specs are properly archived (`implemented` or `deprecated`),
+skip to Step 6 directly.
 
 #### 5.2 Scan for spec-like content (all other patterns)
 
@@ -251,7 +290,26 @@ Already handled in 5.1: skip to Step 6.
 
 #### 5a. Create a project-overview issue
 
-Use the **`create-issue`** skill to open a GitHub issue titled:
+**First, ask the user about the issue identifier convention:**
+
+> "I'm about to create a GitHub issue for the project-overview baseline spec.
+> The spec will be stored at `specs/issue-N/` where N is the GitHub issue
+> number. Would you like to:
+> 1. **Auto-assigned** — Let GitHub assign the next issue number
+> 2. **Custom reference** — Use a different identifier or name for the
+>    spec directory (note: the directory must still be `specs/issue-N/`
+>    to work with AICodingFlow workflows, but I can create an issue with
+>    a specific title that makes N more meaningful)
+> 3. **Map existing issues** — If migrating Pattern 1 specs, I can try
+>    to find existing GitHub issues that correspond to each spec and
+>    use those issue numbers for directory names"
+
+For most projects, option 1 (auto-assigned) is the simplest and works
+well. Option 3 is useful for Pattern 1 migration where existing specs
+may already have corresponding GitHub issues.
+
+After deciding on the convention, use the **`create-issue`** skill to
+open a GitHub issue titled:
 
 `Project Overview and Baseline Documentation`
 
@@ -263,6 +321,20 @@ The issue body should include:
 - Label: `documentation` (if the repo supports it)
 
 After the issue is created, note the issue number (e.g., `#N`).
+
+**For Pattern 1 migration**: Before creating new issues, check whether
+existing GitHub issues already correspond to each spec being migrated:
+
+```bash
+# List existing issues to find matches
+gh issue list --state all --limit 50
+```
+
+For each spec dir found in Pattern 1 (e.g., `specs/feature-auth/`),
+search for a GitHub issue whose title or body matches the spec's
+product.md content. If a match is found, use that issue number for
+the `specs/issue-N/` directory name. If no match exists, create a
+new issue via `create-issue`.
 
 #### 5b. Create the product spec
 
