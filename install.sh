@@ -149,6 +149,71 @@ sync_skills() {
   done
 }
 
+sync_local_scripts() {
+  local scripts_src="$script_dir/scripts"
+  local scripts_dest="$target_dir/scripts"
+  if [ -d "$scripts_src" ]; then
+    copy_dir "$scripts_src" "$scripts_dest"
+  fi
+}
+
+write_version_file() {
+  local version_dest="$target_dir/.aicodingflow-version"
+  local version_value="${AICODINGFLOW_VERSION:-v0.5.0}"
+  if [ "$dry_run" = true ]; then
+    info "Would write version file to $version_dest ($version_value, mode: $mode_label)"
+    return
+  fi
+  if [ "$lite_mode" = true ]; then
+    mode_label="lite"
+  else
+    mode_label="full"
+  fi
+  cat > "$version_dest" <<EOF
+version: $version_value
+mode: $mode_label
+installed_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+EOF
+  info "Written version file: $version_dest ($version_value, $mode_label)"
+}
+
+merge_gitignore() {
+  local upstream_gitignore="$script_dir/.gitignore"
+  local target_gitignore="$target_dir/.gitignore"
+  if [ ! -f "$upstream_gitignore" ]; then return; fi
+  if [ "$dry_run" = true ]; then
+    info "Would merge .gitignore entries into $target_gitignore"
+    return
+  fi
+  local added=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    # Skip blank lines and comments in upstream; target may have its own
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    [[ "$line" =~ ^# ]] && continue
+    if [ -f "$target_gitignore" ] && grep -qF "$line" "$target_gitignore" 2>/dev/null; then
+      continue
+    fi
+    echo "$line" >> "$target_gitignore"
+    added=$((added + 1))
+  done < "$upstream_gitignore"
+  if [ "$added" -gt 0 ]; then
+    info "Merged $added .gitignore entries into $target_gitignore"
+  fi
+}
+
+sync_agents_md() {
+  local src="$script_dir/.agents/AGENTS.md"
+  local dest="$target_dir/.agents/AGENTS.md"
+  if [ ! -f "$src" ]; then return; fi
+  if [ "$dry_run" = true ]; then
+    info "Would sync .agents/AGENTS.md"
+    return
+  fi
+  mkdir -p "$(dirname "$dest")"
+  cp "$src" "$dest"
+  info "Synced .agents/AGENTS.md"
+}
+
 sync_github_dirs() {
   local dirname src dest excludes
 
@@ -225,6 +290,10 @@ CI_LITE
 
 sync_skills
 sync_github_dirs
+sync_local_scripts
+sync_agents_md
+write_version_file
+merge_gitignore
 
 if [ "$lite_mode" = true ]; then
   write_ci_lite
