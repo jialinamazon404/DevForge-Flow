@@ -825,6 +825,15 @@ python3 -m unittest discover -s .github/tests
 python3 -m unittest discover -s .github/aicodingflow-tests
 ```
 
+### 升级命令
+
+1. ./scripts/update.sh --check — 查看当前版本与最新版本，并列出变更
+2. ./scripts/update.sh --dry-run — 预览将更新什么
+3. ./scripts/update.sh — 应用更新（交互式）
+4. ./scripts/update.sh --auto-commit — 应用 + 自动提交
+5. ./scripts/update.sh --only skills — 仅更新技能
+6. ./scripts/update.sh --upgrade-mode full — 从 lite 升级到 full
+
 ---
 
 > **License**: MIT | **Author**: jialin.chen | **Repo**: [jialinamazon404/DevForge-Flow](https://github.com/jialinamazon404/DevForge-Flow)
