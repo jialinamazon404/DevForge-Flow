@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: Understand a project's history, architecture, and current state by analyzing its structure, tech stack, git history, specs, and workflows. Use when the user says "understand this project", "init this project", "what is this project about", or when an AI agent first encounters a new repository and needs project context.
+description: Understand a project's history, architecture, and current state by analyzing its structure, tech stack, git history, specs, and workflows. When no specs exist in the specs/ directory, automatically initialize a baseline spec by chaining create-issue, create-product-spec, and create-tech-spec skills. Use when the user says "understand this project", "init this project", "what is this project about", or when an AI agent first encounters a new repository and needs project context.
 ---
 
 # project-init
@@ -104,7 +104,102 @@ Summarize:
 - Available skills and their categories
 - Whether AGENT_API_KEY appears configured (check workflow env references)
 
-### Step 5: Detect conventions
+### Step 5: Initialize spec structure if empty
+
+Check whether the `specs/` directory exists and contains any spec
+subdirectories:
+
+```bash
+ls -d specs/issue-*/ 2>/dev/null | wc -l
+```
+
+If the count is zero (no specs exist), offer to initialize a baseline
+spec for the project. The spec documents the project's current state
+and behavior — it is not a feature request, but a "project overview"
+spec that gives future agents and contributors a structured reference.
+
+Ask the user:
+> "No specs found in `specs/`. Would you like me to create an initial
+> project-overview spec (product + tech) so the project has a documented
+> baseline?"
+
+If the user confirms, proceed through three sub-steps that chain
+existing skills:
+
+#### 5a. Create a project-overview issue
+
+Use the **`create-issue`** skill to open a GitHub issue titled:
+
+`Project Overview and Baseline Documentation`
+
+The issue body should include:
+- A brief description of the project (from Step 1 detection)
+- The project brief summary (from Step 6, if already generated)
+- A request to document the current state as a baseline spec
+- Label: `documentation` (if the repo supports it)
+
+After the issue is created, note the issue number (e.g., `#N`).
+
+#### 5b. Create the product spec
+
+Use the **`create-product-spec`** skill to generate
+`specs/issue-N/product.md`.
+
+Construct `issue_context.json` from the project brief and the
+GitHub issue created in 5a:
+
+```json
+{
+  "issue_number": N,
+  "title": "Project Overview and Baseline Documentation",
+  "description": "<project brief summary from Step 6>",
+  "labels": [],
+  "assignees": [],
+  "product_spec": "specs/issue-N/product.md",
+  "tech_spec": "specs/issue-N/tech.md",
+  "target_branch": "main"
+}
+```
+
+The product spec should document the project's **current behavior**:
+- Summary of what the project does today
+- Current user-facing features and workflows
+- Known limitations and edge cases
+- Success criteria (what "working correctly" means for the current state)
+- Open questions about ambiguous or undocumented behavior
+
+This is a *baseline snapshot*, not a feature proposal. Focus on
+what exists, not what should be built next.
+
+#### 5c. Create the tech spec
+
+Use the **`create-tech-spec`** skill to generate
+`specs/issue-N/tech.md`.
+
+The tech spec should document the project's **current architecture**:
+- Problem the current implementation solves
+- Relevant code: key files, modules, data flows
+- Current state of the codebase (structure, patterns, conventions)
+- End-to-end flow of the primary user journey
+- Known risks, gaps, and areas with no test coverage
+- Testing and validation approach currently in use
+- Follow-ups: areas that need deeper documentation later
+
+This is a *baseline architecture snapshot*, not an implementation
+plan for new features.
+
+#### Skip conditions
+
+Do **not** initialize specs if:
+- The `specs/` directory already has one or more spec subdirectories
+- The user declines the offer
+- The project has no git remote (no GitHub repo to create an issue on)
+- The `gh` CLI is unavailable or unauthenticated
+
+In these cases, skip to Step 6 and note in the project brief that
+no baseline spec exists.
+
+### Step 6: Detect conventions
 
 Check for convention files:
 
@@ -121,7 +216,7 @@ Check for convention files:
 
 Summarize key conventions: commit format, branch naming, label system, review expectations.
 
-### Step 6: Generate project brief
+### Step 7: Generate project brief
 
 Compile all findings into a structured project brief:
 
@@ -162,7 +257,7 @@ Compile all findings into a structured project brief:
 - **Key entry points**: <main files/directories>
 ```
 
-### Step 7: Update agent context
+### Step 8: Update agent context
 
 If the project has `.agents/AGENTS.md`, append or update a
 `## Project Context` section with the brief summary, so future
@@ -203,3 +298,10 @@ For projects with fewer than 10 files:
 - Does not read inside source files for deep architectural
   analysis — that's a separate deep-read step the user can
   request after this init.
+- Spec initialization requires GitHub CLI (`gh`) and a remote
+  repository. Projects without GitHub connectivity cannot
+  auto-create issues and specs; the agent should note this
+  in the brief and suggest manual spec creation.
+- The baseline spec is a snapshot of current state. It does not
+  replace feature-specific specs that should be created when
+  new issues arise.
