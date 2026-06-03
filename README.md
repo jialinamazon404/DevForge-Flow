@@ -12,6 +12,7 @@
 - [使用指南](#使用指南)
   - [本地开发流 Skills](#本地开发流-skills)
   - [GitHub 协作流 Workflows](#github-协作流-workflows)
+- [项目初始化（project-init）](#项目初始化project-init)
 - [团队工作流图](#团队工作流图)
 - [快速参考](#快速参考)
 - [目录结构](#目录结构)
@@ -422,6 +423,82 @@ $bootstrap-issue-config
 
 ---
 
+#### 🚀 project-init
+
+**用途**：首次接触项目时，自动分析项目历史、架构、技术栈和 Spec 状态，生成项目概览并持久化到 `.agents/AGENTS.md`
+
+**调用方式**：在 OpenCode/Qoder 中运行 `$project-init` 或说「帮我了解这个项目」
+
+**8 步工作流**：
+
+| Step | 动作 | 说明 |
+|------|------|------|
+| 1 | 检测项目基础信息 | 读取 `package.json` / `pyproject.toml` / `go.mod` 等推断技术栈 |
+| 2 | 分析 Git 历史 | 提取提交数、活跃分支、关键贡献者 |
+| 3 | 理解项目结构 | 构建目录用途映射 |
+| 4 | 检查 AICodingFlow 集成 | 识别安装模式（full/lite）、已安装的 Skills 和 Workflows |
+| 5 | 评估与初始化 Spec 结构 | 三种场景处理（详见下方） |
+| 6 | 检测团队规范 | 读取 `.editorconfig`、`conventions.md`、`CODEOWNERS` 等 |
+| 7 | 生成项目概览 | 结构化 Markdown 概览（技术栈、历史、规范、入门指南） |
+| 8 | 更新 Agent 上下文 | 将概览写入 `.agents/AGENTS.md` 供后续会话引用 |
+
+### Step 5 详解：Spec 评估与初始化
+
+project-init 对项目 Spec 状况进行分场景处理：
+
+**场景 A — 无 Spec**：
+
+> 项目没有任何 Spec 文件。
+> 是否创建一个 project-overview 基线 Spec（product + tech）？
+
+创建流程：`create-issue` → `create-product-spec` → `create-tech-spec`，
+生成 `specs/issue-N/product.md` + `tech.md` 作为项目现状快照。
+
+**场景 B — 存在非标准 Spec**：
+
+> 发现以下不符合 AICodingFlow 约定的 Spec 文件：
+>
+> Pattern 1（目录约定不同，文件结构正确）：
+>   `specs/feature-X/product.md` + `tech.md` → 迁移工作量低（仅重命名目录）
+> Pattern 2（文件结构不同）：
+>   `SPEC.md`、`ARCHITECTURE.md` → 迁移工作量中等（内容重组 + 目录重组）
+>
+> 选择操作：1. 迁移 | 2. 新建基线 | 3. 跳过
+
+| Pattern | 例子 | 迁移工作量 |
+|---------|------|------------|
+| Pattern 1 | `specs/feature-X/product.md` + `tech.md`（不是 `specs/issue-N/`） | 低 — 仅重命名目录 |
+| Pattern 2 | `SPEC.md`、`ARCHITECTURE.md`（不是 `product.md` + `tech.md`） | 中 — 重组内容 |
+| Pattern 3 | README、CHANGELOG（不是 Spec） | 无 — 保留原位 |
+
+**场景 C — 已有合规 Spec**：
+
+跳过初始化，但会检查 **Spec 生命周期状态**：
+
+| 状态 | 含义 | 成熟项目期望 |
+|------|------|-------------|
+| `active` | 进行中 | 应很少或为零 |
+| `implemented` | 已实现已归档 | 大多数 Spec 应为此状态 |
+| `deprecated` | 已弃用 | 部分可能存在 |
+| `unknown` | 未标记（旧 Spec） | 需要补充 frontmatter |
+
+如果成熟项目中发现 `status: active` 的 Spec，会询问是否归档：
+- 读取 Spec 内容，检查功能是否已在代码中实现 → 建议归档为 `implemented`
+- 功能被取消或移除 → 建议归档为 `deprecated`
+- 使用 `scripts/archive-spec.py` 更新 frontmatter
+
+**Issue 编号约定**：
+
+创建基线 Spec 时会询问 Issue 编号方式：
+
+| 方式 | 说明 | 适用场景 |
+|------|------|----------|
+| 自动分配 | 让 GitHub 分配下一个编号 | 新项目，最简单 |
+| 自定义引用 | 创建更有意义的 Issue 标题 | 需要编号更有语义 |
+| 映射已有 Issue | 匹配迁移 Spec 对应的现有 Issue | Pattern 1 迁移 |
+
+---
+
 ### GitHub 协作流 Workflows
 
 > GitHub Actions 自动化 Triage、Spec 创建、Implementation、Review
@@ -700,6 +777,7 @@ flowchart LR
 ```
 .agents/                         # 多工具共享 Agent 配置
 .agents/skills/                  # OpenCode/Codex Skills
+    project-init/            # 项目初始化与 Spec 评估 Skill
 .claude/                         # Claude 入口
 .cursor/rules/                   # Cursor rules
 .github/workflows/               # GitHub Actions
