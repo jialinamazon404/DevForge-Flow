@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: Understand a project's history, architecture, and current state by analyzing its structure, tech stack, git history, specs, and workflows. When no specs exist in the specs/ directory, automatically initialize a baseline spec by chaining create-issue, create-product-spec, and create-tech-spec skills. When non-standard specs exist outside the AICodingFlow ecosystem (e.g., SPEC.md, ARCHITECTURE.md, docs/), offer to migrate them into specs/issue-N/product.md + tech.md format or create fresh baseline specs alongside them. Use when the user says "understand this project", "init this project", "what is this project about", or when an AI agent first encounters a new repository and needs project context.
+description: Understand a project's history, architecture, and current state by analyzing its structure, tech stack, git history, specs, and workflows. When no specs exist, initialize a baseline spec by chaining create-issue, create-product-spec, and create-tech-spec skills. When non-standard specs exist (wrong directory convention like specs/feature-X/ instead of specs/issue-N/, or wrong file structure like SPEC.md instead of product.md + tech.md), detect the pattern, classify migration effort (low for dir rename only, medium for content restructure), and offer migrate, initialize-fresh, or skip options. Use when the user says "understand this project", "init this project", "what is this project about", or when an AI agent first encounters a new repository and needs project context.
 ---
 
 # project-init
@@ -112,18 +112,47 @@ layers:
 #### 5.1 Check for ecosystem-compliant specs
 
 ```bash
+# Check for our exact convention
 ls -d specs/issue-*/ 2>/dev/null | wc -l
 ```
 
-If the count is greater than zero, the project already has
-AICodingFlow-compliant specs (`product.md` + `tech.md` pairs).
+If the count is greater than zero, the project has AICodingFlow-compliant
+specs in the exact `specs/issue-N/product.md` + `tech.md` convention.
 Skip initialization and proceed to Step 6.
 
-#### 5.2 Scan for non-standard spec files
+#### 5.2 Scan for spec-like content (all other patterns)
 
-If no `specs/issue-*/` directories exist, scan for other
-documentation that looks like specs — files outside our ecosystem
-that describe behavior, architecture, or design decisions:
+If no `specs/issue-*/` directories exist, there may still be spec content
+in the project — just not in our directory convention. Scan for three
+sub-patterns:
+
+##### Pattern 1: Wrong directory convention, correct file structure
+
+Directories that contain `product.md` + `tech.md` pairs but use a
+different naming scheme than `issue-N`:
+
+```bash
+# Find any subdirectory containing product.md + tech.md pairs
+find . -type f -name product.md | while read p; do
+  dir=$(dirname "$p")
+  [ -f "$dir/tech.md" ] && printf '%s  (product.md + tech.md)\n' "$dir"
+done 2>/dev/null
+```
+
+Examples of this pattern:
+- `specs/feature-X/product.md` + `specs/feature-X/tech.md`
+- `docs/specs/001/product.md` + `docs/specs/001/tech.md`
+- `specifications/PRD-001/product.md` + `specifications/PRD-001/tech.md`
+
+These specs already follow our **content structure** — they just need
+**directory reorganization** to match the `specs/issue-N/` convention.
+This is a lightweight migration: rename/move directories, no content
+restructuring needed.
+
+##### Pattern 2: Wrong file structure (flat or different naming)
+
+Spec-like files that exist in recognizable directories but don't
+use the `product.md` + `tech.md` naming:
 
 ```bash
 # Common non-standard spec locations
@@ -140,19 +169,33 @@ done
 rg -l -i "(specification|architecture|design doc|system design|api spec|feature spec)" *.md docs/*.md 2>/dev/null
 ```
 
-For each candidate file or directory found, read enough to determine:
-- Is it a **product-level** doc (describes behavior, user experience, requirements)?
-- Is it a **tech-level** doc (describes architecture, implementation, data flow)?
-- Is it just general documentation (README, changelog, contributing guide — not a spec)?
+Examples of this pattern:
+- `SPEC.md` (single file, mixed product + tech content)
+- `ARCHITECTURE.md` (tech-level content only)
+- `docs/FEATURE-X.md` (product-level content, flat file)
+- `design/SYSTEM-DESIGN.md` (tech-level, different directory)
 
-Classify what you find:
+These need **content restructuring** in addition to directory
+reorganization.
 
-| Classification | Examples | Action |
-|---------------|----------|--------|
-| Product-level spec | `docs/FEATURE-X.md`, `SPEC.md` with behavior descriptions | Migrate to `product.md` |
-| Tech-level spec | `ARCHITECTURE.md`, `design/SYSTEM-DESIGN.md` | Migrate to `tech.md` |
-| Mixed spec | Single file covering both behavior + architecture | Split into `product.md` + `tech.md` |
-| General docs | README, CHANGELOG, CONTRIBUTING | Leave in place, reference in brief |
+##### Pattern 3: General documentation (not specs)
+
+Files like README, CHANGELOG, CONTRIBUTING — useful as context but
+not specs. Leave in place and reference in the project brief.
+
+##### Classification summary
+
+| Pattern | Directory | Files | Migration effort |
+|---------|-----------|-------|-----------------|
+| Pattern 1 | Wrong convention | `product.md` + `tech.md` pairs | Low — rename/move dirs only |
+| Pattern 2 | Wrong location | Flat or differently named files | Medium — restructure + reorganize |
+| Pattern 3 | Any | General docs (README, etc.) | None — leave in place |
+
+For each candidate found in Patterns 1 and 2, read enough to confirm:
+- Is it a **product-level** doc (behavior, UX, requirements)?
+- Is it a **tech-level** doc (architecture, implementation, data flow)?
+- Is it a **mixed** doc (both behavior + architecture in one file)?
+- Is it just general documentation (not a spec)?
 
 #### 5.3 Decide on spec initialization
 
@@ -168,21 +211,32 @@ If the user confirms, proceed to sub-steps 5a–5c below.
 
 **Scenario B — Non-standard specs exist**
 
-> "I found existing spec-like docs outside the AICodingFlow ecosystem:
-> - `<list of files with classification>`
+> "I found existing specs that don't follow the AICodingFlow convention:
+> - `<list with pattern classification>`
 >
-> These are not in the `specs/issue-N/product.md` + `tech.md` format.
+> Pattern 1 (wrong dir, correct files): `<paths with product.md + tech.md pairs>`
+>   → Low-effort migration: rename directories to `specs/issue-N/`
+> Pattern 2 (wrong structure): `<paths with flat/differently-named files>`
+>   → Medium-effort migration: restructure content + reorganize directories
+>
 > Would you like me to:
 > 1. **Migrate** — Convert these docs into AICodingFlow-compliant specs
->    (preserves existing content, restructures into product.md + tech.md)
+>    (Pattern 1: rename dirs; Pattern 2: restructure + reorganize)
 > 2. **Initialize fresh** — Create a new baseline spec alongside existing docs
 >    (keeps old docs untouched, adds ecosystem-compliant specs)
 > 3. **Skip** — Leave existing docs as-is, just note them in the project brief"
 
-If the user chooses option 1 (Migrate), proceed to sub-steps 5a–5c
-but incorporate content from the non-standard specs into the new
-`product.md` and `tech.md`. Read each source file, extract relevant
-sections, and fold them into the appropriate ecosystem spec.
+If the user chooses option 1 (Migrate):
+- **For Pattern 1 dirs** (wrong convention, correct files): The migration
+  is a directory rename. For each `product.md` + `tech.md` pair found
+  outside `specs/issue-*/`, create the corresponding `specs/issue-N/`
+  directory, copy (not move) the files into it, and update the `issue-N`
+  number based on whether a GitHub issue exists for that spec. If no
+  matching issue exists, use `create-issue` to create one first.
+- **For Pattern 2 files** (wrong structure): Proceed to sub-steps 5a–5c
+  but incorporate content from the non-standard specs. Read each source
+  file, extract relevant sections, and fold them into the appropriate
+  ecosystem spec.
 
 If the user chooses option 2 (Initialize fresh), proceed to sub-steps
 5a–5c without referencing the non-standard specs. The new baseline
@@ -392,3 +446,13 @@ For projects with fewer than 10 files:
 - The baseline spec is a snapshot of current state. It does not
   replace feature-specific specs that should be created when
   new issues arise.
+- Pattern 1 migration (directory rename only) does not change
+  spec content. The agent copies files to `specs/issue-N/` but
+  does not verify content consistency — the user should review
+  migrated specs to confirm they still make sense in the new
+  directory context.
+- Pattern 2 migration (content restructure) may lose nuance
+  from the original files. The `Source Documents` section in
+  each migrated spec preserves the original file paths for
+  reference, but the agent may not perfectly separate mixed
+  product + tech content.
