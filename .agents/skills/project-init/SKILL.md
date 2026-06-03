@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: Understand a project's history, architecture, and current state by analyzing its structure, tech stack, git history, specs, and workflows. When no specs exist in the specs/ directory, automatically initialize a baseline spec by chaining create-issue, create-product-spec, and create-tech-spec skills. Use when the user says "understand this project", "init this project", "what is this project about", or when an AI agent first encounters a new repository and needs project context.
+description: Understand a project's history, architecture, and current state by analyzing its structure, tech stack, git history, specs, and workflows. When no specs exist in the specs/ directory, automatically initialize a baseline spec by chaining create-issue, create-product-spec, and create-tech-spec skills. When non-standard specs exist outside the AICodingFlow ecosystem (e.g., SPEC.md, ARCHITECTURE.md, docs/), offer to migrate them into specs/issue-N/product.md + tech.md format or create fresh baseline specs alongside them. Use when the user says "understand this project", "init this project", "what is this project about", or when an AI agent first encounters a new repository and needs project context.
 ---
 
 # project-init
@@ -104,27 +104,96 @@ Summarize:
 - Available skills and their categories
 - Whether AGENT_API_KEY appears configured (check workflow env references)
 
-### Step 5: Initialize spec structure if empty
+### Step 5: Evaluate and initialize spec structure
 
-Check whether the `specs/` directory exists and contains any spec
-subdirectories:
+Determine the project's current spec situation by checking three
+layers:
+
+#### 5.1 Check for ecosystem-compliant specs
 
 ```bash
 ls -d specs/issue-*/ 2>/dev/null | wc -l
 ```
 
-If the count is zero (no specs exist), offer to initialize a baseline
-spec for the project. The spec documents the project's current state
-and behavior — it is not a feature request, but a "project overview"
-spec that gives future agents and contributors a structured reference.
+If the count is greater than zero, the project already has
+AICodingFlow-compliant specs (`product.md` + `tech.md` pairs).
+Skip initialization and proceed to Step 6.
 
-Ask the user:
-> "No specs found in `specs/`. Would you like me to create an initial
-> project-overview spec (product + tech) so the project has a documented
-> baseline?"
+#### 5.2 Scan for non-standard spec files
 
-If the user confirms, proceed through three sub-steps that chain
-existing skills:
+If no `specs/issue-*/` directories exist, scan for other
+documentation that looks like specs — files outside our ecosystem
+that describe behavior, architecture, or design decisions:
+
+```bash
+# Common non-standard spec locations
+for f in SPEC.md DESIGN.md ARCHITECTURE.md ROADMAP.md; do
+  [ -f "$f" ] && printf '%s\n' "$f"
+done
+
+# Directories that may contain spec-like docs
+for d in docs specs design specifications arch; do
+  [ -d "$d" ] && printf '%s/\n' "$d"
+done
+
+# Any markdown files with spec-like titles
+rg -l -i "(specification|architecture|design doc|system design|api spec|feature spec)" *.md docs/*.md 2>/dev/null
+```
+
+For each candidate file or directory found, read enough to determine:
+- Is it a **product-level** doc (describes behavior, user experience, requirements)?
+- Is it a **tech-level** doc (describes architecture, implementation, data flow)?
+- Is it just general documentation (README, changelog, contributing guide — not a spec)?
+
+Classify what you find:
+
+| Classification | Examples | Action |
+|---------------|----------|--------|
+| Product-level spec | `docs/FEATURE-X.md`, `SPEC.md` with behavior descriptions | Migrate to `product.md` |
+| Tech-level spec | `ARCHITECTURE.md`, `design/SYSTEM-DESIGN.md` | Migrate to `tech.md` |
+| Mixed spec | Single file covering both behavior + architecture | Split into `product.md` + `tech.md` |
+| General docs | README, CHANGELOG, CONTRIBUTING | Leave in place, reference in brief |
+
+#### 5.3 Decide on spec initialization
+
+Based on the scan results, present the situation to the user:
+
+**Scenario A — No specs at all**
+
+> "No specs found in this project. Would you like me to create an
+> initial project-overview spec (product + tech) so the project has
+> a documented baseline?"
+
+If the user confirms, proceed to sub-steps 5a–5c below.
+
+**Scenario B — Non-standard specs exist**
+
+> "I found existing spec-like docs outside the AICodingFlow ecosystem:
+> - `<list of files with classification>`
+>
+> These are not in the `specs/issue-N/product.md` + `tech.md` format.
+> Would you like me to:
+> 1. **Migrate** — Convert these docs into AICodingFlow-compliant specs
+>    (preserves existing content, restructures into product.md + tech.md)
+> 2. **Initialize fresh** — Create a new baseline spec alongside existing docs
+>    (keeps old docs untouched, adds ecosystem-compliant specs)
+> 3. **Skip** — Leave existing docs as-is, just note them in the project brief"
+
+If the user chooses option 1 (Migrate), proceed to sub-steps 5a–5c
+but incorporate content from the non-standard specs into the new
+`product.md` and `tech.md`. Read each source file, extract relevant
+sections, and fold them into the appropriate ecosystem spec.
+
+If the user chooses option 2 (Initialize fresh), proceed to sub-steps
+5a–5c without referencing the non-standard specs. The new baseline
+spec captures current state independently.
+
+If the user chooses option 3 (Skip), skip to Step 6 and note
+the non-standard spec locations in the project brief.
+
+**Scenario C — Ecosystem-compliant specs exist**
+
+Already handled in 5.1: skip to Step 6.
 
 #### 5a. Create a project-overview issue
 
@@ -134,8 +203,9 @@ Use the **`create-issue`** skill to open a GitHub issue titled:
 
 The issue body should include:
 - A brief description of the project (from Step 1 detection)
-- The project brief summary (from Step 6, if already generated)
+- The project brief summary (from Step 7, if already generated)
 - A request to document the current state as a baseline spec
+- If migrating non-standard specs: list the source files being converted
 - Label: `documentation` (if the repo supports it)
 
 After the issue is created, note the issue number (e.g., `#N`).
@@ -152,7 +222,7 @@ GitHub issue created in 5a:
 {
   "issue_number": N,
   "title": "Project Overview and Baseline Documentation",
-  "description": "<project brief summary from Step 6>",
+  "description": "<project brief summary from Step 7>",
   "labels": [],
   "assignees": [],
   "product_spec": "specs/issue-N/product.md",
@@ -167,6 +237,14 @@ The product spec should document the project's **current behavior**:
 - Known limitations and edge cases
 - Success criteria (what "working correctly" means for the current state)
 - Open questions about ambiguous or undocumented behavior
+
+**If migrating non-standard specs**: Read each product-level source
+file identified in 5.2. Extract behavior descriptions, user
+requirements, and feature specs. Fold them into the `product.md`
+sections. Add a `## Source Documents` section at the end listing
+the original file paths with a note like:
+> "Content migrated from `<original-file-path>`. Original file should
+> be archived or removed after review."
 
 This is a *baseline snapshot*, not a feature proposal. Focus on
 what exists, not what should be built next.
@@ -185,19 +263,28 @@ The tech spec should document the project's **current architecture**:
 - Testing and validation approach currently in use
 - Follow-ups: areas that need deeper documentation later
 
+**If migrating non-standard specs**: Read each tech-level source
+file identified in 5.2. Extract architecture descriptions, data
+flow diagrams, system design decisions, and implementation notes.
+Fold them into the `tech.md` sections. Add a `## Source Documents`
+section at the end listing the original file paths.
+
 This is a *baseline architecture snapshot*, not an implementation
 plan for new features.
 
 #### Skip conditions
 
 Do **not** initialize specs if:
-- The `specs/` directory already has one or more spec subdirectories
-- The user declines the offer
+- The `specs/` directory already has ecosystem-compliant specs
+  (`specs/issue-*/product.md` pairs)
+- The user declines all offers (Scenario A decline, or Scenario B option 3)
 - The project has no git remote (no GitHub repo to create an issue on)
 - The `gh` CLI is unavailable or unauthenticated
 
-In these cases, skip to Step 6 and note in the project brief that
-no baseline spec exists.
+In these cases, skip to Step 6. Note in the project brief:
+- Whether baseline ecosystem specs exist or not
+- Where non-standard spec files live (if any)
+- Whether migration was offered but declined
 
 ### Step 6: Detect conventions
 
