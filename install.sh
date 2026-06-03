@@ -238,6 +238,63 @@ else
   info "AICodingFlow installation complete."
 fi
 
+# --- Post-install project-init prompt ---
+# Only prompt when files were actually written and stdin is a terminal.
+# For non-interactive installs (piped via curl), just print a hint.
+
+ask_init_spec() {
+  if [ "$dry_run" = true ]; then
+    return
+  fi
+
+  if [ ! -t 0 ]; then
+    # Non-interactive: print a hint without prompting
+    cat <<'INIT_HINT'
+
+Tip: Run $project-init in your AI tool to initialize project specs
+and generate a project brief for future sessions.
+INIT_HINT
+    return
+  fi
+
+  cat <<'INIT_EXPLAIN'
+
+Project Spec Initialization ($project-init)
+
+Running $project-init in your AI tool will:
+  1. Analyze your project structure, tech stack, and git history
+  2. Check for existing specs in the specs/ directory
+  3. If no specs exist → create baseline product.md + tech.md
+     If non-standard specs → detect pattern and offer migration options
+     If specs already compliant → verify lifecycle status and offer archival
+  4. Generate a project brief and update .agents/AGENTS.md
+
+This gives the AI agent full project context for future work sessions.
+INIT_EXPLAIN
+
+  printf 'Would you like to initialize project specs? [Y/n] '
+  local answer=""
+  read -r answer || true
+
+  case "$answer" in
+    n|N|no|No|NO)
+      info "Skipping. You can run $project-init later in your AI tool."
+      ;;
+    *)
+      cat <<'INIT_OK'
+
+Open this project in your AI tool and run:
+
+  $project-init
+
+Or simply say: "understand this project" / "init this project"
+INIT_OK
+      ;;
+  esac
+}
+
+ask_init_spec
+
 if [ "$lite_mode" = true ]; then
   cat <<'NEXT_LITE'
 
@@ -262,10 +319,9 @@ NEXT_LITE
 else
   cat <<'NEXT'
 
-Optional next step for first-time issue triage setup:
-$bootstrap-issue-config
-
-This optional bootstrap uses the GitHub CLI and may create labels or update .github/CODEOWNERS.
-It is intended for first-time triage setup, not regular scheduled runs.
+Recommended next steps:
+  1. Configure AGENT_API_KEY + AGENT_MODEL + AGENT_LOGIN
+     in your repository Settings > Secrets and Variables
+  2. Run $bootstrap-issue-config to set up issue triage labels and CODEOWNERS
 NEXT
 fi
