@@ -1,6 +1,6 @@
 ---
 name: create-issue
-description: Create a GitHub issue from the current conversation or user-provided request by selecting the best `.github` issue template, filling it conservatively, and submitting it with GitHub CLI.
+description: Create a GitHub issue from the current conversation or user-provided request by selecting the best `.github` issue template, filling it conservatively, and submitting it with GitHub CLI. Includes input quality validation via $validate-issue before submission.
 ---
 
 # create-issue
@@ -114,6 +114,39 @@ Example transformations:
 - Final title: "SN001: Add OAuth2 support"
 - Body includes: `<!-- SNXXX: SN001 -->`
 
+### 4a. Validate Input Quality
+
+Before building title and body, run the `$validate-issue` skill. The user will
+first select their input type, then the skill runs type-specific elemental and
+logical gate checks.
+
+The validate-issue skill will:
+1. Ask the user to select the input type (bug, simple-feature, prd, epic, or vague)
+2. If the selection seems mismatched with the content, suggest a correction
+3. Run type-specific elemental checks (required elements present and substantive)
+4. Run type-specific logical checks (content quality: clarity, completeness, consistency)
+5. Ask targeted questions for missing/failing items (max 1 round per gate)
+6. Produce a validation result with classification, per-item results, known gaps,
+   and a routing suggestion
+
+If validation identifies gaps after one question round:
+  - Proceed with "known_gaps" documented in the issue body
+  - Include the machine-readable `<!-- validate-issue-result -->` block and
+    a human-readable "## Quality Gaps" section (only when gaps exist)
+  - This signals downstream skills ($triage-issue, $write-product-spec) that
+    the issue may need additional clarification
+
+If the user chooses to force-submit despite gaps:
+  - Accept the force-submit — gaps are documented, not blocked
+  - Still include the validate-issue-result block and Quality Gaps section
+
+After validation, note the routing suggestion for the post-creation report:
+  - bug: triage will auto-run
+  - simple-feature: suggest $write-product-spec or $spec-driven-implementation
+  - prd: suggest $spec-driven-implementation for full spec pipeline
+  - epic: suggest $epic-breakdown-advisor first
+  - vague: triage will request clarification
+
 ### 5. Build Title And Body
 
 Fill only facts from the user request, attachments, and current conversation.
@@ -126,6 +159,9 @@ the user did not specify.
 
 For YAML issue forms, convert relevant `body` prompts into markdown for
 `gh issue create --body-file`; fill unknown required values as `Not provided`.
+
+If `$validate-issue` produced a result, embed the machine-readable block and
+(optional) Quality Gaps section at the end of the issue body.
 
 Keep one issue to one actionable problem or request. If the conversation
 contains unrelated requests, ask whether to create one issue per request.
@@ -177,7 +213,9 @@ If `gh` is unavailable, unauthenticated, or lacks permission, do not use
 explicit metadata needed for manual creation.
 
 After creation, report the issue URL/number, selected template or plain issue
-fallback, explicit metadata applied, and any `Not provided` fields.
+fallback, explicit metadata applied, any `Not provided` fields, and the routing
+suggestion from `$validate-issue` (e.g., "Next step: $spec-driven-implementation
+for full spec pipeline" or "Next step: triage will auto-run").
 
 Do not create labels, milestones, projects, branches, commits, pull requests, or
 any other repository files from this skill.

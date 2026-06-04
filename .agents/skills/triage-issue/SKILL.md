@@ -40,6 +40,17 @@ If a companion file is not referenced in the prompt, rely on the core contract a
    - the user's observed symptoms
    - the user's hypotheses, proposed fixes, or root-cause claims
    - the missing details that block confident triage
+1a. If the issue body contains a `<!-- validate-issue-result -->` block (from
+    `$validate-issue` during `$create-issue`), parse it to extract the classification,
+    elemental/logical results, and known gaps. Use the known gaps as priority
+    follow-up questions — do not re-ask items already identified as gaps.
+1b. If the issue body does NOT contain a `<!-- validate-issue-result -->` block
+    (web-created issue that bypassed `$create-issue`), run a lightweight elemental
+    check yourself:
+    - Does the issue have a clear problem statement?
+    - Does it specify who is affected?
+    - Does it include acceptance criteria or expected behavior?
+    Any missing items become follow-up questions in the triage result.
 2. Classify whether the issue is primarily a bug report, enhancement request, documentation issue, or needs more information.
 3. Inspect only the most relevant code and docs needed to understand the report. Avoid broad, unfocused repository scans.
 4. Infer the most likely related files and estimate reproducibility as `high`, `medium`, `low`, or `unknown`.
