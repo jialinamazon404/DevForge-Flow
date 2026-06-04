@@ -669,18 +669,34 @@ project-init 对项目 Spec 状况进行分场景处理：
 
 ---
 
-### 本地辅助脚本
+### 本地辅助脚本与 Skill
 
 > 当没有 GitHub Actions 时，可用 `scripts/` 下的脚本手动执行 Spec 生命周期操作。
 > 所有脚本仅依赖 git + Python 标准库，不需要 `gh` CLI 或 API key。
+>
+> **推荐：** 在 OpenCode/Qoder 对话中可直接使用 `$` 前缀的 Skill 调用，无需切换终端。
 
-| 脚本 | 用途 | 用法 |
-|------|------|------|
-| `new-spec.sh` | 创建 spec 模板（含 frontmatter） | `scripts/new-spec.sh <issue-number> [title]` |
-| `verify-impl.py` | 本地比对实现 vs spec | `scripts/verify-impl.py <issue-number> [base-ref]` |
-| `archive-spec.py` | 本地更新 spec 状态 frontmatter | `scripts/archive-spec.py <issue-number> <status> [value]` |
+| 脚本 | Skill | 用途 | 用法 |
+|------|-------|------|------|
+| `new-spec.sh` | `$init-spec` | 创建 spec 模板（含 frontmatter） | `$init-spec #N [title]` |
+| `verify-impl.py` | `$verify-impl` | 本地比对实现 vs spec | `$verify-impl #N [--base ref]` |
+| `archive-spec.py` | `$archive-spec` | 本地更新 spec 状态 frontmatter | `$archive-spec #N <status> [value]` |
 
-**示例**：
+**Skill 调用示例**（推荐）：
+
+```bash
+# 创建新 spec
+$init-spec #42 "Add login feature"
+
+# 校验实现与 spec 是否一致
+$verify-impl #42
+
+# 归档 spec
+$archive-spec #42 implemented 123
+$archive-spec #42 deprecated "Replaced by v2 API"
+```
+
+**脚本调用示例**（终端手动执行）：
 
 ```bash
 # 创建新 spec

@@ -27,11 +27,14 @@ request -> issue -> branch/worktree -> commit -> push -> pr -> review -> merge
 | SKILL | 用途 |
 | --- | --- |
 | `create-issue` | 根据当前对话或用户输入选择 `.github` issue 模板并创建 GitHub issue。 |
+| `init-spec` | 为 issue 创建 `specs/issue-<N>/product.md` + `tech.md` 模板。 |
 | `git-branch` | 根据 issue 或任务描述创建规范分支。 |
 | `git-worktree` | 为并行 issue 或任务创建独立 worktree。 |
 | `git-commit` | 从真实 diff 中整理原子提交。 |
 | `git-push` | 安全推送分支，避免误推 base 分支或强推。 |
 | `create-pr` | 创建或更新 GitHub PR。 |
+| `verify-impl` | 验证实现代码与 spec 的对齐情况（验收标准 + 文件变更对比）。 |
+| `archive-spec` | 归档 spec 状态为 `implemented` 或 `deprecated`。 |
 | `diagnose-ci-failures` | 拉取 PR、branch 或 run 的 CI 失败日志并生成修复计划。 |
 | `resolve-merge-conflicts` | 在 merge、rebase、cherry-pick 或 stash pop 冲突时提取并解决冲突。 |
 
@@ -138,31 +141,31 @@ PYTHONPYCACHEPREFIX=/tmp/aicodingflow-pycache python3 -m py_compile \
 
 ```mermaid
 flowchart LR
-    A[create-issue] --> B[new-spec.sh]
+    A[create-issue] --> B[init-spec]
     B --> C[编写 Spec]
     C --> D[git-branch]
     D --> E[实现功能]
-    E --> F[verify-impl.py]
+    E --> F[verify-impl]
     F --> G[git-commit]
     G --> H[create-pr]
     H --> I[审核合并]
-    I --> J[archive-spec.py]
+    I --> J[archive-spec]
 ```
 
 ### 详细步骤
 
 | 步骤 | 操作 | 命令/Skill | 输出 |
 |------|------|------------|------|
-| 1. 创建 Issue | OpenCode skill | `$create-issue` | GitHub Issue #N |
-| 2. 创建 Spec 模板 | 本地脚本 | `./scripts/new-spec.sh N` | `specs/issue-N/product.md` + `tech.md` |
+| 1. 创建 Issue | Skill | `$create-issue` | GitHub Issue #N |
+| 2. 创建 Spec 模板 | Skill | `$init-spec #N` | `specs/issue-N/product.md` + `tech.md` |
 | 3. 编写 Spec | 手动编辑 | 编辑器 | 填充 product.md 和 tech.md 内容 |
-| 4. 创建开发分支 | OpenCode skill | `$git-branch #N` | `feat/xxx-N` 或 `spec/xxx-N` |
+| 4. 创建开发分支 | Skill | `$git-branch #N` | `feat/xxx-N` 或 `spec/xxx-N` |
 | 5. 实现功能 | 手动开发 | — | 代码变更 |
-| 6. 验证实现 | 本地脚本 | `./scripts/verify-impl.py N` | 验证报告（比对 spec vs diff） |
-| 7. 提交代码 | OpenCode skill | `$git-commit` | Git commit（含 SNXXX 前缀） |
-| 8. 推送分支 | OpenCode skill | `$git-push` | 推送到 remote |
-| 9. 创建 PR | OpenCode skill | `$create-pr` | GitHub PR |
-| 10. 归档 Spec | 本地脚本 | `./scripts/archive-spec.py N implemented PR号` | 更新 spec 状态为 `implemented` |
+| 6. 验证实现 | Skill | `$verify-impl #N` | 验证报告（比对 spec vs diff） |
+| 7. 提交代码 | Skill | `$git-commit` | Git commit（含 SNXXX 前缀） |
+| 8. 推送分支 | Skill | `$git-push` | 推送到 remote |
+| 9. 创建 PR | Skill | `$create-pr` | GitHub PR |
+| 10. 归档 Spec | Skill | `$archive-spec #N implemented PR号` | 更新 spec 状态为 `implemented` |
 
 ---
 
@@ -340,14 +343,14 @@ python3 scripts/archive-spec.py 42 deprecated "Feature cancelled by stakeholder"
 | 操作 | 本地流程（无 Actions） | GitHub 协作流（有 Actions） |
 |------|------------------------|-----------------------------|
 | 创建 Issue | `$create-issue` | `$create-issue` |
-| 创建 Spec 模板 | 手动 `./scripts/new-spec.sh` | **自动**触发（添加 `ready-to-spec` 标签） |
+| 创建 Spec 模板 | `$init-spec` | **自动**触发（添加 `ready-to-spec` 标签） |
 | 编写 Spec 内容 | 手动编辑 | **AI 自动**生成 product.md + tech.md |
 | 创建开发分支 | `$git-branch` | **自动**触发（添加 `plan-approved` 标签） |
 | 实现功能 | 手动开发 | **AI 自动**实现代码 |
-| 验证实现 | `python3 scripts/verify-impl.py` | **自动**运行 `verify-impl-against-spec.yml` |
+| 验证实现 | `$verify-impl` | **自动**运行 `verify-impl-against-spec.yml` |
 | 提交/推送 | `$git-commit` + `$git-push` | 自动提交到实现分支 |
 | 创建 PR | `$create-pr` | **自动**创建实现 PR |
-| 归档 Spec | `python3 scripts/archive-spec.py` | **自动**触发（PR 合并） |
+| 归档 Spec | `$archive-spec` | **自动**触发（PR 合并） |
 
 **关键差异：**
 
@@ -381,7 +384,7 @@ python3 scripts/archive-spec.py 42 deprecated "Feature cancelled by stakeholder"
 $create-issue          # 输入：Add user profile page
 
 # 2. 创建 Spec 模板
-./scripts/new-spec.sh 42
+$init-spec #42         # 输出：specs/issue-42/product.md + tech.md
 
 # 3. 编写 Spec（手动编辑）
 vim specs/issue-42/product.md
@@ -394,7 +397,7 @@ $git-branch #42        # 输出：feat/user-profile-42
 # ... 开发代码 ...
 
 # 6. 验证实现
-python3 scripts/verify-impl.py 42
+$verify-impl #42       # 输出：验证报告
 
 # 7. 提交
 $git-commit            # 输出：SN001: feat(profile): add user profile page
@@ -406,7 +409,7 @@ $git-push
 $create-pr
 
 # 10. PR 合并后归档
-python3 scripts/archive-spec.py 42 implemented 123
+$archive-spec #42 implemented 123
 ```
 
 #### 场景 2：团队协作（混合模式）
@@ -414,7 +417,7 @@ python3 scripts/archive-spec.py 42 implemented 123
 ```bash
 # 本地创建 Issue 和 Spec 模板
 $create-issue
-./scripts/new-spec.sh 43
+$init-spec #43
 
 # 团队成员协作编写 Spec
 # Push spec 分支，团队审核 product.md + tech.md
